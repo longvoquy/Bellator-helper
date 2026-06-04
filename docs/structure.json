@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "LecooHelper",
+  "version": "1.0.0",
+  "description": "Windows tray app for Lecoo Fighter laptops — hardware monitoring and power profiles",
+  "platform": {
+    "os": ["windows10", "windows11"],
+    "framework": "net8.0-windows",
+    "ui": "winforms",
+    "arch": "x64"
+  },
+  "entryPoints": {
+    "main": "Program.cs",
+    "normalRun": "TrayApp",
+    "debugFlag": "--debug",
+    "debugHandler": "App/Utils/HardwareDebugger.cs"
+  },
+  "documentation": {
+    "agentsEntry": "AGENTS.md",
+    "humanReadme": "README.md",
+    "fullSpec": "docs/PROJECT_SPEC.md"
+  },
+  "layers": [
+    {
+      "id": "hardware",
+      "path": "App/Hardware",
+      "namespace": "LecooHelper.App.Hardware",
+      "mayReference": ["LibreHardwareMonitor", "System.Management", "System.Diagnostics"],
+      "mustNotReference": ["System.Windows.Forms", "LecooHelper.App.Tray", "LecooHelper.App.Power"]
+    },
+    {
+      "id": "power",
+      "path": "App/Power",
+      "namespace": "LecooHelper.App.Power",
+      "mayReference": ["System", "Microsoft.Win32"],
+      "mustNotReference": ["LecooHelper.App.Tray", "LecooHelper.App.Hardware"]
+    },
+    {
+      "id": "tray",
+      "path": "App/Tray",
+      "namespace": "LecooHelper.App.Tray",
+      "mayReference": ["LecooHelper.App.Hardware", "LecooHelper.App.Power", "LecooHelper.App.Utils", "System.Windows.Forms"],
+      "role": "UI orchestration only — no direct LHM Computer construction"
+    },
+    {
+      "id": "utils",
+      "path": "App/Utils",
+      "namespace": "LecooHelper.App.Utils",
+      "mayReference": ["LecooHelper.App.Hardware for HardwareDebugger only"],
+      "role": "Settings, AutoStart, admin check, debug dump"
+    }
+  ],
+  "singletons": [
+    {
+      "name": "HardwareMonitorHost",
+      "file": "App/Hardware/HardwareMonitorHost.cs",
+      "rule": "Only place that creates LibreHardwareMonitor.Computer"
+    }
+  ],
+  "baseClasses": [
+    {
+      "name": "PollingMonitorBase",
+      "file": "App/Hardware/PollingMonitorBase.cs",
+      "implementations": ["CpuMonitor", "GpuMonitor", "RamMonitor", "FanMonitor"]
+    }
+  ],
+  "files": [
+    { "path": "Program.cs", "type": "entry", "status": "active" },
+    { "path": "App/Hardware/HardwareMonitorHost.cs", "type": "infrastructure", "status": "active" },
+    { "path": "App/Hardware/PollingMonitorBase.cs", "type": "base", "status": "active" },
+    { "path": "App/Hardware/SensorReader.cs", "type": "helper", "status": "active", "visibility": "internal" },
+    { "path": "App/Hardware/WmiHelper.cs", "type": "helper", "status": "active" },
+    { "path": "App/Hardware/CpuMonitor.cs", "type": "monitor", "status": "active", "wiredToTray": true },
+    { "path": "App/Hardware/GpuMonitor.cs", "type": "monitor", "status": "active", "wiredToTray": true },
+    { "path": "App/Hardware/RamMonitor.cs", "type": "monitor", "status": "implemented", "wiredToTray": false },
+    { "path": "App/Hardware/FanMonitor.cs", "type": "monitor", "status": "implemented", "wiredToTray": false },
+    { "path": "App/Power/PowerMode.cs", "type": "service", "status": "stub" },
+    { "path": "App/Power/PerformanceProfile.cs", "type": "model", "status": "active" },
+    { "path": "App/Tray/TrayApp.cs", "type": "applicationContext", "status": "active" },
+    { "path": "App/Tray/SettingsForm.cs", "type": "form", "status": "active", "replacesPlanFile": "PopupForm.cs" },
+    { "path": "App/Tray/HardwareSnapshot.cs", "type": "dto", "status": "active" },
+    { "path": "App/Tray/TrayIconHelper.cs", "type": "helper", "status": "active" },
+    { "path": "App/Tray/TrayTheme.cs", "type": "theme", "status": "active" },
+    { "path": "App/Utils/Settings.cs", "type": "settings", "status": "active", "storage": "%APPDATA%/LecooHelper/settings.json" },
+    { "path": "App/Utils/AutoStart.cs", "type": "registry", "status": "active" },
+    { "path": "App/Utils/AdminHelper.cs", "type": "helper", "status": "active" },
+    { "path": "App/Utils/HardwareDebugger.cs", "type": "debug", "status": "active" },
+    { "path": "Resources/tray_icon.ico", "type": "asset", "status": "active" },
+    { "path": "app.manifest", "type": "manifest", "status": "active", "elevation": "requireAdministrator" }
+  ],
+  "packages": [
+    "LibreHardwareMonitorLib",
+    "Microsoft.Win32.Registry",
+    "System.Diagnostics.PerformanceCounter"
+  ],
+  "rulesForAgents": [
+    "Read AGENTS.md before editing",
+    "Do not create a second Computer instance",
+    "New monitors extend PollingMonitorBase in App/Hardware",
+    "UI changes stay in App/Tray",
+    "Power control logic stays in App/Power/PowerMode.cs",
+    "Do not add PopupForm if SettingsForm exists",
+    "Do not run dotnet build unless user asks",
+    "No emoji in console output"
+  ],
+  "ignoredPaths": ["bin/**", "obj/**", ".vs/**", "node_modules/**"]
+}

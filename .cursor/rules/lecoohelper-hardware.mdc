@@ -1,0 +1,33 @@
+---
+description: LecooHelper — pattern App/Hardware monitors và sensors
+globs: App/Hardware/**/*.cs
+alwaysApply: false
+---
+
+# Hardware layer
+
+Chỉ sửa sensor/polling trong `App/Hardware/`.
+
+## Monitor mới
+
+```csharp
+public sealed class XxxMonitor : PollingMonitorBase
+{
+    protected override void Refresh()
+    {
+        var computer = HardwareMonitorHost.Computer;
+        // SensorReader / WmiHelper — never new Computer()
+    }
+}
+```
+
+- `Start()`/`Stop()` dùng base → ref-count `HardwareMonitorHost`.
+- Expose metrics qua properties; `RaiseUpdated()` qua base timer.
+
+## Helpers
+
+- `SensorReader` — LHM theo `HardwareType` / `SensorType`
+- `WmiHelper` — WMI dùng chung, không duplicate query string
+- `PollNow()` — khi UI cần refresh ngay (đã có trên base)
+
+Chi tiết: [docs/PROJECT_SPEC.md](../docs/PROJECT_SPEC.md) mục Hardware.

@@ -1,0 +1,43 @@
+---
+description: LecooHelper — kiến trúc WinForms tray, layer và quy tắc sửa code
+alwaysApply: true
+---
+
+# LecooHelper
+
+Đọc trước khi sửa: [AGENTS.md](AGENTS.md) và khi cần chi tiết [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md).
+
+## Dự án
+
+System tray WinForms (.NET 8, Windows only) cho Lecoo Fighter N176B. Entry: `Program.cs` → `TrayApp` (mutex single-instance; `--debug` → `HardwareDebugger`).
+
+## Layer (đặt code đúng chỗ)
+
+| Layer | Path | Được | Cấm |
+|-------|------|------|-----|
+| Hardware | `App/Hardware/` | LHM qua host, WMI, PerformanceCounter | WinForms, Tray, Power |
+| Power | `App/Power/` | `PowerMode`, profiles | Hardware, Tray |
+| Tray | `App/Tray/` | UI, orchestration | `new Computer()` trực tiếp |
+| Utils | `App/Utils/` | Settings, registry, debug | UI forms |
+
+## Bắt buộc
+
+- **Một `Computer`:** chỉ `HardwareMonitorHost`; đọc sensor qua `SensorReader`.
+- **Monitor mới:** `PollingMonitorBase` trong `App/Hardware/`, event `Updated`.
+- **Power:** logic trong `PowerMode.cs`; menu gọi `PowerMode.SetMode` — hiện **stub**.
+- **RAM/Fan:** `RamMonitor`/`FanMonitor` đã có — wire `TrayApp` + `HardwareSnapshot`, không tạo class trùng.
+- **Dashboard:** dùng `SettingsForm` — không tạo `PopupForm`.
+- **UI thread:** cập nhật control qua `SynchronizationContext.Post` (như `TrayApp`).
+- **NotifyIcon Win11:** không gán `ContextMenuStrip` lên icon; right-click `Show` thủ công.
+
+## Không làm
+
+- Thêm package/framework mới (trừ khi user yêu cầu).
+- `dotnet build` / compile — user tự build.
+- Copy code ASUS/G-Helper.
+- Refactor file không liên quan task.
+- Emoji trong `Console.WriteLine`.
+
+## Trạng thái nhanh
+
+CPU/GPU + tray + `SettingsForm`: done. `PowerMode.SetMode`: stub. `RamMonitor`/`FanMonitor`: chưa gắn UI.
