@@ -5,21 +5,17 @@ namespace LecooHelper.App.Tray;
 
 public sealed class SettingsForm : Form
 {
-    private const int FormW = 340;
-    private const int FormH = 270;
+    private const int FormW = 420;
+    private const int FormH = 300;
     private const int FormPad = 12;
     private const int CornerRadius = 10;
     private const int InnerW = FormW - FormPad * 2;
     private const int HeaderHeight = 44;
+    private const int StatRowHeight = 36;
 
     private readonly Label _cpuTempLabel;
     private readonly Label _gpuTempLabel;
-    private readonly Label _modeLabel;
-    private readonly ProgressBar _cpuBar;
-    private readonly ProgressBar _gpuBar;
-    private readonly Button _btnSilent;
-    private readonly Button _btnBalanced;
-    private readonly Button _btnPerformance;
+    private readonly List<Button> _modeButtons = [];
 
     private bool _dragging;
     private Point _dragStart;
@@ -39,20 +35,12 @@ public sealed class SettingsForm : Form
 
         var header = BuildHeader();
 
-        _cpuTempLabel = MakeValueLabel("--");
-        _gpuTempLabel = MakeValueLabel("--");
-        _modeLabel = MakeValueLabel("--", 11f);
+        _cpuTempLabel = MakeStatValueLabel("--");
+        _gpuTempLabel = MakeStatValueLabel("--");
 
-        _cpuBar = MakeBar();
-        _gpuBar = MakeBar();
-
-        var cpuRow = BuildStatRow("CPU", _cpuTempLabel, _cpuBar);
-        var gpuRow = BuildStatRow("GPU", _gpuTempLabel, _gpuBar);
-        var modeRow = BuildModeRow(out _btnSilent, out _btnBalanced, out _btnPerformance);
-
-        _btnSilent.Click += (_, _) => ModeChangeRequested?.Invoke(this, PowerModeKind.Silent);
-        _btnBalanced.Click += (_, _) => ModeChangeRequested?.Invoke(this, PowerModeKind.Balanced);
-        _btnPerformance.Click += (_, _) => ModeChangeRequested?.Invoke(this, PowerModeKind.Performance);
+        var modeRow = BuildModeRow();
+        var cpuRow = BuildStatRow("CPU", _cpuTempLabel);
+        var gpuRow = BuildStatRow("GPU", _gpuTempLabel);
 
         var mainPanel = new FlowLayoutPanel
         {
@@ -63,9 +51,9 @@ public sealed class SettingsForm : Form
             BackColor = TrayTheme.Background,
             Padding = new Padding(FormPad, 6, FormPad, FormPad)
         };
+        mainPanel.Controls.Add(modeRow);
         mainPanel.Controls.Add(cpuRow);
         mainPanel.Controls.Add(gpuRow);
-        mainPanel.Controls.Add(modeRow);
 
         Controls.Add(mainPanel);
         Controls.Add(header);
@@ -104,20 +92,15 @@ public sealed class SettingsForm : Form
 
     public void HideAll() => Hide();
 
-    internal void ApplySnapshot(HardwareSnapshot snapshot, string modeName)
+    internal void ApplySnapshot(HardwareSnapshot snapshot, PowerModeKind mode)
     {
         _cpuTempLabel.Text = FormatCpuTemp(snapshot.CpuTemp);
-        _cpuTempLabel.ForeColor = TrayTheme.TempAccent(snapshot.CpuTemp);
-        _cpuBar.Value = TempPercent(snapshot.CpuTemp);
-        _cpuBar.ForeColor = TrayTheme.TempAccent(snapshot.CpuTemp);
+        _cpuTempLabel.ForeColor = TrayTheme.Text;
 
         _gpuTempLabel.Text = FormatTemp(snapshot.GpuTemp);
-        _gpuTempLabel.ForeColor = TrayTheme.TempAccent(snapshot.GpuTemp);
-        _gpuBar.Value = TempPercent(snapshot.GpuTemp);
-        _gpuBar.ForeColor = TrayTheme.TempAccent(snapshot.GpuTemp);
+        _gpuTempLabel.ForeColor = TrayTheme.Text;
 
-        _modeLabel.Text = modeName;
-        HighlightModeButton(modeName);
+        HighlightModeButton(mode);
     }
 
     private Panel BuildHeader()
@@ -135,7 +118,7 @@ public sealed class SettingsForm : Form
             Text = "Lecoo Helper",
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
-            Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+            Font = TrayTheme.Title,
             ForeColor = TrayTheme.Text,
             BackColor = TrayTheme.Background
         };
@@ -146,14 +129,15 @@ public sealed class SettingsForm : Form
             Dock = DockStyle.Right,
             Width = 36,
             FlatStyle = FlatStyle.Flat,
-            ForeColor = TrayTheme.TextMuted,
+            ForeColor = TrayTheme.Text,
             BackColor = TrayTheme.Background,
             TabStop = false,
             Cursor = Cursors.Hand,
-            Font = new Font("Segoe UI", 10f)
+            Font = TrayTheme.CloseButton
         };
         closeBtn.FlatAppearance.BorderSize = 0;
-        closeBtn.FlatAppearance.MouseOverBackColor = TrayTheme.HeaderHover;
+        closeBtn.FlatAppearance.MouseOverBackColor = TrayTheme.Background;
+        closeBtn.FlatAppearance.MouseDownBackColor = TrayTheme.Background;
         closeBtn.Click += (_, _) => HideAll();
 
         header.Paint += (_, e) =>
@@ -167,44 +151,72 @@ public sealed class SettingsForm : Form
         return header;
     }
 
-    private static Panel BuildStatRow(string title, Label valueLabel, ProgressBar bar)
+    private static Panel BuildStatRow(string title, Label valueLabel)
     {
         var panel = new Panel
         {
             Width = InnerW,
-            Height = 58,
+            Height = StatRowHeight,
+            BackColor = TrayTheme.Background
+        };
+
+        panel.Paint += (_, e) =>
+        {
+            using var pen = new Pen(TrayTheme.Border, 1);
+            e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1);
+        };
+
+        // TableLayoutPanel chia 2 cột: trái AutoSize, phải Fill
+        var table = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            RowCount = 1,
             BackColor = TrayTheme.Background,
             Padding = new Padding(0)
         };
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));  // cột trái: vừa đủ chứa "CPU"/"GPU"
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // cột phải: lấy hết phần còn lại
 
         var titleLabel = new Label
         {
             Text = title,
-            Location = new Point(0, 4),
-            AutoSize = true,
-            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            ForeColor = TrayTheme.TextMuted,
-            BackColor = TrayTheme.Background
+            Dock = DockStyle.Fill,
+            Font = TrayTheme.SectionLabel,
+            ForeColor = TrayTheme.Text,
+            BackColor = TrayTheme.Background,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(10, 0, 0, 0)
         };
 
-        valueLabel.Location = new Point(60, 0);
+        valueLabel.Dock = DockStyle.Fill;
+        valueLabel.TextAlign = ContentAlignment.MiddleRight;
+        valueLabel.Padding = new Padding(0, 0, 10, 0);
 
-        bar.Location = new Point(0, 34);
-        bar.Width = InnerW;
-        bar.Height = 4;
+        table.Controls.Add(titleLabel, 0, 0);
+        table.Controls.Add(valueLabel, 1, 0);
 
-        panel.Controls.Add(titleLabel);
-        panel.Controls.Add(valueLabel);
-        panel.Controls.Add(bar);
+        panel.Controls.Add(table);
         return panel;
     }
 
-    private Panel BuildModeRow(out Button silent, out Button balanced, out Button performance)
+    private Panel BuildModeRow()
     {
+        var profiles = PerformanceProfile.All;
+
+        const int gap = 6;
+        const int btnH = 32;
+        const int modeLabelY = 2;
+        const int modeLabelRowH = 18;
+        const int modeLabelButtonGap = 10;
+        const int modeButtonY = modeLabelY + modeLabelRowH + modeLabelButtonGap;
+        const int panelBottomPad = 8;
+        var btnW = (InnerW - gap * (profiles.Count - 1)) / profiles.Count;
+
         var panel = new Panel
         {
             Width = InnerW,
-            Height = 60,
+            Height = modeButtonY + btnH + panelBottomPad,
             BackColor = TrayTheme.Background,
             Padding = new Padding(0)
         };
@@ -212,60 +224,52 @@ public sealed class SettingsForm : Form
         var titleLabel = new Label
         {
             Text = "Mode",
-            Location = new Point(0, 4),
+            Location = new Point(0, modeLabelY),
             AutoSize = true,
-            Font = new Font("Segoe UI", 9f, FontStyle.Bold),
-            ForeColor = TrayTheme.TextMuted,
-            BackColor = TrayTheme.Background
-        };
-
-        const int btnW = 100, gap = 8, startY = 26;
-
-        silent = MakeModeButton("Silent", new Point(0, startY));
-        balanced = MakeModeButton("Balanced", new Point(btnW + gap, startY));
-        performance = MakeModeButton("Performance", new Point((btnW + gap) * 2, startY));
-
-        panel.Controls.Add(titleLabel);
-        panel.Controls.Add(silent);
-        panel.Controls.Add(balanced);
-        panel.Controls.Add(performance);
-        return panel;
-    }
-
-    private static Label MakeValueLabel(string text, float size = 18f) =>
-        new()
-        {
-            Text = text,
-            AutoSize = true,
-            Font = new Font("Segoe UI", size, FontStyle.Bold),
+            Font = TrayTheme.SectionLabel,
             ForeColor = TrayTheme.Text,
             BackColor = TrayTheme.Background
         };
+        panel.Controls.Add(titleLabel);
 
-    private static ProgressBar MakeBar() =>
-        new()
+        for (var i = 0; i < profiles.Count; i++)
         {
-            Minimum = 0,
-            Maximum = 100,
-            Value = 0,
-            Height = 4,
-            Style = ProgressBarStyle.Continuous,
-            ForeColor = TrayTheme.TempAccent(50f),
-            BackColor = TrayTheme.GaugeTrack
-        };
+            var profile = profiles[i];
+            var btn = new Button
+            {
+                Text = profile.Name,
+                Location = new Point(i * (btnW + gap), modeButtonY),
+                Size = new Size(btnW, btnH),
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = TrayTheme.Text,
+                BackColor = TrayTheme.Surface,
+                Font = TrayTheme.Body,
+                Cursor = Cursors.Hand,
+                TabStop = false,
+                Tag = profile.Kind
+            };
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.BorderColor = TrayTheme.Border;
+            btn.FlatAppearance.MouseOverBackColor = TrayTheme.Surface;
+            btn.FlatAppearance.MouseDownBackColor = TrayTheme.Surface;
 
-    private static Button MakeModeButton(string text, Point location) =>
+            btn.Click += (_, _) => ModeChangeRequested?.Invoke(this, profile.Kind);
+
+            _modeButtons.Add(btn);
+            panel.Controls.Add(btn);
+        }
+
+        return panel;
+    }
+
+    private static Label MakeStatValueLabel(string text) =>
         new()
         {
             Text = text,
-            Location = location,
-            Size = new Size(100, 30),
-            FlatStyle = FlatStyle.Flat,
-            ForeColor = TrayTheme.TextMuted,
-            BackColor = TrayTheme.Surface,
-            Font = new Font("Segoe UI", 8.5f),
-            Cursor = Cursors.Hand,
-            TabStop = false
+            AutoSize = false,
+            Font = TrayTheme.StatValue,
+            ForeColor = TrayTheme.Text,
+            BackColor = TrayTheme.Background
         };
 
     private void OnDragStart(object? sender, MouseEventArgs e)
@@ -291,20 +295,30 @@ public sealed class SettingsForm : Form
         HideAll();
     }
 
-    private void HighlightModeButton(string modeName)
+    private void HighlightModeButton(PowerModeKind mode)
     {
-        foreach (var btn in new[] { _btnSilent, _btnBalanced, _btnPerformance })
+        foreach (var btn in _modeButtons)
         {
-            var active = btn.Text.Equals(modeName, StringComparison.OrdinalIgnoreCase);
-            btn.ForeColor = active ? TrayTheme.GaugeFill : TrayTheme.TextMuted;
-            btn.FlatAppearance.BorderColor = active ? TrayTheme.GaugeFill : TrayTheme.Border;
-            btn.FlatAppearance.BorderSize = 1;
-            btn.BackColor = active ? TrayTheme.ModeActiveFill : TrayTheme.Surface;
+            var active = btn.Tag is PowerModeKind kind && kind == mode;
+            if (active)
+            {
+                var fill = TrayTheme.ModeFill(mode);
+                btn.ForeColor = TrayTheme.ModeForeColor(mode);
+                btn.BackColor = fill;
+                btn.FlatAppearance.BorderColor = TrayTheme.Border;
+                btn.FlatAppearance.MouseOverBackColor = fill;
+                btn.FlatAppearance.MouseDownBackColor = fill;
+            }
+            else
+            {
+                btn.ForeColor = TrayTheme.Text;
+                btn.BackColor = TrayTheme.Surface;
+                btn.FlatAppearance.BorderColor = TrayTheme.Border;
+                btn.FlatAppearance.MouseOverBackColor = TrayTheme.Surface;
+                btn.FlatAppearance.MouseDownBackColor = TrayTheme.Surface;
+            }
         }
     }
-
-    private static int TempPercent(float celsius) =>
-        celsius > 0f ? Math.Clamp((int)celsius, 0, 100) : 0;
 
     private static string FormatTemp(float celsius) =>
         celsius > 0f ? $"{celsius:0}°C" : "--";

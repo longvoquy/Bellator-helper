@@ -28,7 +28,18 @@ static class Program
 
         using var mutex = new Mutex(true, "LecooHelper", out bool isNew);
         if (!isNew)
+        {
+            if (Environment.UserInteractive)
+            {
+                MessageBox.Show(
+                    "LecooHelper is already running in the system tray.",
+                    "LecooHelper",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+
             return;
+        }
 
         ApplicationConfiguration.Initialize();
         Application.EnableVisualStyles();

@@ -29,8 +29,8 @@ public sealed class TrayApp : ApplicationContext
         _cpuMonitor = new CpuMonitor(interval);
         _gpuMonitor = new GpuMonitor(interval);
 
-        if (Enum.TryParse<PowerModeKind>(_settings.DefaultPowerMode, ignoreCase: true, out var defaultMode))
-            PowerMode.SetMode(defaultMode);
+        if (!PowerMode.TrySyncFromSystem())
+            PowerMode.SetMode(_settings.DefaultPowerMode);
 
         _settingsForm = new SettingsForm();
         _settingsForm.ModeChangeRequested += OnSettingsFormModeChangeRequested;
@@ -115,7 +115,11 @@ public sealed class TrayApp : ApplicationContext
 
     private void ApplyPowerMode(PowerModeKind kind)
     {
-        PowerMode.SetMode(kind);
+        if (!PowerMode.SetMode(kind))
+            return;
+
+        _settings.DefaultPowerMode = kind;
+        _settings.Save();
         UpdatePowerModeChecks();
         PostRefreshTray();
     }
@@ -141,8 +145,9 @@ public sealed class TrayApp : ApplicationContext
         if (_disposed)
             return;
 
+        PowerMode.TrySyncFromSystem();
+
         var snapshot = CreateSnapshot();
-        var modeName = GetCurrentModeName();
 
         _cpuMenuItem.Text = $"CPU Temp: {FormatCpuTemp(snapshot.CpuTemp)}";
         _gpuMenuItem.Text = $"GPU Temp: {FormatTemp(snapshot.GpuTemp)}";
@@ -154,7 +159,7 @@ public sealed class TrayApp : ApplicationContext
         UpdatePowerModeChecks();
 
         if (_settingsForm.Visible)
-            _settingsForm.ApplySnapshot(snapshot, modeName);
+            _settingsForm.ApplySnapshot(snapshot, PowerMode.Current);
     }
 
     private void RefreshSensorsNow()
@@ -166,9 +171,6 @@ public sealed class TrayApp : ApplicationContext
 
     private HardwareSnapshot CreateSnapshot() =>
         new(_cpuMonitor.Temp, _gpuMonitor.Temperature);
-
-    private static string GetCurrentModeName() =>
-        PerformanceProfile.All.FirstOrDefault(p => p.Kind == PowerMode.Current)?.Name ?? "Balanced";
 
     private void ShowSettings()
     {
@@ -184,7 +186,7 @@ public sealed class TrayApp : ApplicationContext
             {
                 _settingsForm.PositionBottomRight();
                 RefreshSensorsNow();
-                _settingsForm.ApplySnapshot(CreateSnapshot(), GetCurrentModeName());
+                _settingsForm.ApplySnapshot(CreateSnapshot(), PowerMode.Current);
                 _settingsForm.ShowAll();
             }
             catch
