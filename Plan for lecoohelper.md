@@ -2,7 +2,7 @@
 
 ---
 
-# AGENT PLAN: Lecoo Fighter Helper
+# AGENT PLAN: Bellator Helper
 
 ## Thông tin máy (từ ảnh)
 ```
@@ -22,14 +22,14 @@ OS:  Windows 11
 TASK: Khởi tạo project C# WinForms .NET 8
 
 COMMANDS:
-dotnet new winforms -n LecooHelper --framework net8.0-windows
-cd LecooHelper
+dotnet new winforms -n BHelper --framework net8.0-windows
+cd BHelper
 dotnet add package LibreHardwareMonitorLib
 dotnet add package Microsoft.Win32.Registry
 
 CẤU TRÚC THƯ MỤC TẠO RA:
-LecooHelper/
-├── LecooHelper.csproj
+BHelper/
+├── BHelper.csproj
 ├── Program.cs
 ├── App/
 │   ├── Hardware/
@@ -190,7 +190,7 @@ AGENT INSTRUCTION:
 "Tạo AutoStart.cs:
 - Enable: thêm registry key
   HKCU\Software\Microsoft\Windows\CurrentVersion\Run
-  'LecooHelper' = path to exe
+  'BHelper' = path to exe
 - Disable: xóa key đó
 - Check: IsEnabled() return bool"
 ```
@@ -200,7 +200,7 @@ FILE: App/Utils/Settings.cs
 
 AGENT INSTRUCTION:
 "Tạo Settings.cs dùng System.Text.Json
-Lưu file: %APPDATA%\LecooHelper\settings.json
+Lưu file: %APPDATA%\BHelper\settings.json
 Properties:
   - UpdateIntervalMs: int = 2000
   - StartMinimized: bool = true
@@ -240,7 +240,7 @@ Chạy 1 lần khi debug mode"
 static void Main()
 {
     // Chỉ cho chạy 1 instance
-    using var mutex = new Mutex(true, "LecooHelper", out bool isNew);
+    using var mutex = new Mutex(true, "BHelper", out bool isNew);
     if (!isNew) return;
 
     Application.EnableVisualStyles();
@@ -276,8 +276,8 @@ static void Main()
 Copy paste cái này vào Claude Code:
 
 ```
-Tạo project C# WinForms tên "LecooHelper" cho laptop 
-Lecoo Fighter N176B với specs:
+Tạo project C# WinForms tên "BHelper" cho laptop 
+Bellator N176B với specs:
 - CPU: i7-13650HX
 - GPU: RTX 5060 Laptop  
 - RAM: 16GB

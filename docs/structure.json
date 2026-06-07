@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "name": "LecooHelper",
+  "name": "BHelper",
   "version": "1.0.0",
-  "description": "Windows tray app for Lecoo Fighter laptops — hardware monitoring and power profiles",
+  "description": "Windows tray app for Bellator laptops — hardware monitoring and power profiles",
   "platform": {
     "os": ["windows10", "windows11"],
     "framework": "net8.0-windows",
@@ -24,29 +24,29 @@
     {
       "id": "hardware",
       "path": "App/Hardware",
-      "namespace": "LecooHelper.App.Hardware",
+      "namespace": "BHelper.App.Hardware",
       "mayReference": ["LibreHardwareMonitor", "System.Management", "System.Diagnostics"],
-      "mustNotReference": ["System.Windows.Forms", "LecooHelper.App.Tray", "LecooHelper.App.Power"]
+      "mustNotReference": ["System.Windows.Forms", "BHelper.App.Tray", "BHelper.App.Power"]
     },
     {
       "id": "power",
       "path": "App/Power",
-      "namespace": "LecooHelper.App.Power",
+      "namespace": "BHelper.App.Power",
       "mayReference": ["System", "Microsoft.Win32"],
-      "mustNotReference": ["LecooHelper.App.Tray", "LecooHelper.App.Hardware"]
+      "mustNotReference": ["BHelper.App.Tray", "BHelper.App.Hardware"]
     },
     {
       "id": "tray",
       "path": "App/Tray",
-      "namespace": "LecooHelper.App.Tray",
-      "mayReference": ["LecooHelper.App.Hardware", "LecooHelper.App.Power", "LecooHelper.App.Utils", "System.Windows.Forms"],
+      "namespace": "BHelper.App.Tray",
+      "mayReference": ["BHelper.App.Hardware", "BHelper.App.Power", "BHelper.App.Utils", "System.Windows.Forms"],
       "role": "UI orchestration only — no direct LHM Computer construction"
     },
     {
       "id": "utils",
       "path": "App/Utils",
-      "namespace": "LecooHelper.App.Utils",
-      "mayReference": ["LecooHelper.App.Hardware for HardwareDebugger only"],
+      "namespace": "BHelper.App.Utils",
+      "mayReference": ["BHelper.App.Hardware for HardwareDebugger only"],
       "role": "Settings, AutoStart, admin check, debug dump"
     }
   ],
@@ -81,7 +81,7 @@
     { "path": "App/Tray/HardwareSnapshot.cs", "type": "dto", "status": "active" },
     { "path": "App/Tray/TrayIconHelper.cs", "type": "helper", "status": "active" },
     { "path": "App/Tray/TrayTheme.cs", "type": "theme", "status": "active" },
-    { "path": "App/Utils/Settings.cs", "type": "settings", "status": "active", "storage": "%APPDATA%/LecooHelper/settings.json" },
+    { "path": "App/Utils/Settings.cs", "type": "settings", "status": "active", "storage": "%APPDATA%/BHelper/settings.json" },
     { "path": "App/Utils/AutoStart.cs", "type": "registry", "status": "active" },
     { "path": "App/Utils/AdminHelper.cs", "type": "helper", "status": "active" },
     { "path": "App/Utils/HardwareDebugger.cs", "type": "debug", "status": "active" },

@@ -1,6 +1,6 @@
 using System.Management;
 
-namespace LecooHelper.App.Power;
+namespace BHelper.App.Power;
 
 internal enum BellatorSystemPerMode : byte
 {

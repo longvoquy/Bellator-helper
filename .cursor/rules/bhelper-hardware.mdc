@@ -1,5 +1,5 @@
 ---
-description: LecooHelper — pattern App/Hardware monitors và sensors
+description: BHelper — pattern App/Hardware monitors và sensors
 globs: App/Hardware/**/*.cs
 alwaysApply: false
 ---

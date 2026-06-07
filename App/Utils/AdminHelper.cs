@@ -1,4 +1,4 @@
-namespace LecooHelper.App.Utils;
+namespace BHelper.App.Utils;
 
 public static class AdminHelper
 {

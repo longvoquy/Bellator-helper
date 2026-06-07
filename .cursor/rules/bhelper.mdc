@@ -1,15 +1,15 @@
 ---
-description: LecooHelper — kiến trúc WinForms tray, layer và quy tắc sửa code
+description: BHelper — kiến trúc WinForms tray, layer và quy tắc sửa code
 alwaysApply: true
 ---
 
-# LecooHelper
+# BHelper
 
 Đọc trước khi sửa: [AGENTS.md](AGENTS.md) và khi cần chi tiết [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md).
 
 ## Dự án
 
-System tray WinForms (.NET 8, Windows only) cho Lecoo Fighter N176B. Entry: `Program.cs` → `TrayApp` (mutex single-instance; `--debug` → `HardwareDebugger`).
+System tray WinForms (.NET 8, Windows only) cho Bellator N176B. Entry: `Program.cs` → `TrayApp` (mutex single-instance; `--debug` → `HardwareDebugger`).
 
 ## Layer (đặt code đúng chỗ)
 

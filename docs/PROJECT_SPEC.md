@@ -1,4 +1,4 @@
-# LecooHelper — Đặc tả dự án
+# BHelper — Đặc tả dự án
 
 > Tài liệu này mô tả **cấu trúc hiện tại** và **quy tắc mở rộng** để mọi platform/agent (Cursor, Claude Code, Copilot, v.v.) chỉnh sửa nhất quán, tránh code lan man và trùng lặp.
 
@@ -27,7 +27,7 @@
 | CPU usage | `System.Diagnostics.PerformanceCounter` |
 | WMI | `System.Management` (trong `WmiHelper`, monitors) |
 | Registry | `Microsoft.Win32.Registry` — AutoStart, debug dump |
-| Settings | `%APPDATA%\LecooHelper\settings.json` (`System.Text.Json`) |
+| Settings | `%APPDATA%\BHelper\settings.json` (`System.Text.Json`) |
 | Quyền | `app.manifest` → `requireAdministrator` (nhiệt CPU Intel/MSR) |
 
 **Không thêm** package UI (WPF, Avalonia), DI container, hoặc logging framework trừ khi có yêu cầu rõ ràng.
@@ -37,14 +37,14 @@
 ## 3. Cây thư mục (source)
 
 ```
-LecooHelper/
+BHelper/
 ├── AGENTS.md                 ← Điểm vào cho AI (đọc trước)
 ├── README.md                 ← Hướng dẫn người dùng: build, publish, debug
 ├── Program.cs                ← Main, mutex, --debug
-├── LecooHelper.csproj
-├── LecooHelper.sln
+├── BHelper.csproj
+├── BHelper.sln
 ├── app.manifest              ← UAC administrator
-├── Plan for lecoohelper.md   ← Lịch sử plan gốc (tham khảo, có thể lệch code thực tế)
+├── Plan for BHelper.md   ← Lịch sử plan gốc (tham khảo, có thể lệch code thực tế)
 ├── docs/
 │   ├── PROJECT_SPEC.md       ← File này
 │   └── structure.json        ← Metadata máy đọc
@@ -102,9 +102,9 @@ LecooHelper/
 
 | Quy tắc | Ví dụ |
 |---------|--------|
-| Root namespace | `LecooHelper` |
-| App code | `LecooHelper.App.{Layer}` |
-| Layer = tên folder | `LecooHelper.App.Hardware` |
+| Root namespace | `BHelper` |
+| App code | `BHelper.App.{Layer}` |
+| Layer = tên folder | `BHelper.App.Hardware` |
 | Monitor class | `{Part}Monitor` : `PollingMonitorBase` |
 | Static helpers | `{Name}Helper` hoặc tên miêu tả (`SensorReader`) |
 | UI form | `{Name}Form` trong `Tray/` |
@@ -152,7 +152,7 @@ File **một public type chính** (trừ nested nhỏ). Không gom nhiều monit
 | File | Trách nhiệm | Ghi chú |
 |------|-------------|---------|
 | `Settings.cs` | Load/Save JSON AppData | |
-| `AutoStart.cs` | HKCU `Run` key `LecooHelper` | |
+| `AutoStart.cs` | HKCU `Run` key `BHelper` | |
 | `AdminHelper.cs` | Kiểm tra quyền admin | Hiển thị gợi ý CPU temp |
 | `HardwareDebugger.cs` | `--debug` dump sensors/WMI/registry | Output `logs/hardware_dump.txt` |
 
@@ -292,4 +292,4 @@ Khi thay đổi **cấu trúc** (folder mới, class chính, wire monitor, imple
 
 ## 14. Liên hệ plan cũ
 
-`Plan for lecoohelper.md` mô tả `PopupForm.cs` — **code hiện tại dùng `SettingsForm.cs`**. Agent mới **không** tạo lại PopupForm trừ khi user yêu cầu đổi tên/flow.
+`Plan for BHelper.md` mô tả `PopupForm.cs` — **code hiện tại dùng `SettingsForm.cs`**. Agent mới **không** tạo lại PopupForm trừ khi user yêu cầu đổi tên/flow.

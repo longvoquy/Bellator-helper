@@ -1,4 +1,4 @@
-namespace LecooHelper.App.Hardware;
+namespace BHelper.App.Hardware;
 
 public abstract class PollingMonitorBase : IDisposable
 {

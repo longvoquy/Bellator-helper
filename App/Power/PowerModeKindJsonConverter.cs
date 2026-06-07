@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace LecooHelper.App.Power;
+namespace BHelper.App.Power;
 
 internal sealed class PowerModeKindJsonConverter : JsonConverter<PowerModeKind>
 {

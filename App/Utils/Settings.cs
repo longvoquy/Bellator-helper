@@ -1,13 +1,13 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using LecooHelper.App.Power;
+using BHelper.App.Power;
 
-namespace LecooHelper.App.Utils;
+namespace BHelper.App.Utils;
 
 public sealed class Settings
 {
     private static readonly string SettingsDirectory =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "LecooHelper");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppBranding.AppId);
 
     private static readonly string SettingsFilePath = Path.Combine(SettingsDirectory, "settings.json");
 

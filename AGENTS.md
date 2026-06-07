@@ -1,12 +1,12 @@
-# LecooHelper — Hướng dẫn cho AI / Agent
+# BHelper — Hướng dẫn cho AI / Agent
 
 Đọc file này **trước** khi sửa code. Chi tiết đầy đủ nằm trong [`docs/`](docs/).
 
-**Cursor:** rule tự áp dụng trong [`.cursor/rules/`](.cursor/rules/) (`lecoohelper.mdc` mọi chat; `lecoohelper-hardware.mdc` khi mở file `App/Hardware/`).
+**Cursor:** rule tự áp dụng trong [`.cursor/rules/`](.cursor/rules/) (`bhelper.mdc` mọi chat; `bhelper-hardware.mdc` khi mở file `App/Hardware/`).
 
 ## Mục tiêu dự án
 
-Ứng dụng **system tray** nhẹ (WinForms, .NET 8) thay Bellator Control Center trên laptop **Lecoo Fighter N176B** (và tương tự). Chỉ Windows 10/11.
+Ứng dụng **system tray** nhẹ (WinForms, .NET 8) thay Bellator Control Center trên laptop **Bellator / Lecoo Fighter N176B** (và tương tự). Hiển thị: **Bellator Helper** / **B-helper**. Chỉ Windows 10/11.
 
 ## Tài liệu bắt buộc
 
@@ -40,11 +40,11 @@
 Program.cs
 App/
   Hardware/   # Sensor polling (LibreHardwareMonitor, WMI, PerformanceCounter)
-  Power/      # Performance profiles (chưa điều khiển phần cứng thật)
+  Power/      # Performance profiles
   Tray/       # NotifyIcon, menu, SettingsForm (dashboard)
   Utils/      # Settings JSON, AutoStart, AdminHelper, HardwareDebugger
 Resources/
-  tray_icon.ico
+  gcc.ico
 ```
 
 ## Module chưa gắn UI (đừng duplicate)
@@ -57,8 +57,8 @@ Resources/
 |---------|------------|
 | CPU/GPU monitor + tray | Hoạt động |
 | SettingsForm (dashboard) | Hoạt động |
-| PowerMode.SetMode | Stub (`return false`) — chờ dump phần cứng |
+| PowerMode.SetMode | WMI Bellator |
 | RamMonitor / FanMonitor | Code sẵn, chưa integrate |
-| AutoStart trong UI | Kiểm tra `SettingsForm` / settings |
+| AutoStart trong UI | Task Scheduler `BHelper` |
 
 Khi không chắc đặt file ở đâu → mở [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md) mục **Ma trận trách nhiệm** và **Checklist thêm tính năng**.

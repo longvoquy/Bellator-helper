@@ -1,13 +1,16 @@
-using LecooHelper.App.Tray;
-using LecooHelper.App.Utils;
+using System.Globalization;
+using BHelper.App.Tray;
+using BHelper.App.Utils;
 
-namespace LecooHelper;
+namespace BHelper;
 
 static class Program
 {
     [STAThread]
     static void Main(string[] args)
     {
+        SetDefaultCulture();
+
         var debugMode = args.Contains("--debug", StringComparer.OrdinalIgnoreCase);
 
         if (debugMode)
@@ -18,7 +21,7 @@ static class Program
             {
                 MessageBox.Show(
                     $"Hardware dump saved to:\n{path}",
-                    "LecooHelper Debug",
+                    $"{AppBranding.ShortName} Debug",
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
@@ -26,14 +29,14 @@ static class Program
             return;
         }
 
-        using var mutex = new Mutex(true, "LecooHelper", out bool isNew);
+        using var mutex = new Mutex(true, AppBranding.AppId, out bool isNew);
         if (!isNew)
         {
             if (Environment.UserInteractive)
             {
                 MessageBox.Show(
-                    "LecooHelper is already running in the system tray.",
-                    "LecooHelper",
+                    $"{AppBranding.ShortName} is already running in the system tray.",
+                    AppBranding.ShortName,
                     MessageBoxButtons.OK,
                     MessageBoxIcon.Information);
             }
@@ -45,5 +48,14 @@ static class Program
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
         Application.Run(new TrayApp());
+    }
+
+    private static void SetDefaultCulture()
+    {
+        var culture = new CultureInfo("en-US");
+        CultureInfo.DefaultThreadCurrentCulture = culture;
+        CultureInfo.DefaultThreadCurrentUICulture = culture;
+        Thread.CurrentThread.CurrentCulture = culture;
+        Thread.CurrentThread.CurrentUICulture = culture;
     }
 }

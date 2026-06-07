@@ -1,10 +1,10 @@
 using System.Management;
 using System.Text;
 using LibreHardwareMonitor.Hardware;
-using LecooHelper.App.Hardware;
+using BHelper.App.Hardware;
 using Microsoft.Win32;
 
-namespace LecooHelper.App.Utils;
+namespace BHelper.App.Utils;
 
 public static class HardwareDebugger
 {
@@ -17,14 +17,14 @@ public static class HardwareDebugger
         var path = Path.Combine(logDir, "hardware_dump.txt");
 
         var sb = new StringBuilder();
-        sb.AppendLine($"LecooHelper hardware dump");
+        sb.AppendLine($"{AppBranding.ShortName} hardware dump");
         sb.AppendLine($"Time: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine($"Exe: {AppContext.BaseDirectory}");
         sb.AppendLine($"Admin: {AdminHelper.IsRunningAsAdministrator()}");
         if (!AdminHelper.IsRunningAsAdministrator())
         {
             sb.AppendLine("NOTE: CPU temperature sensors stay null without Administrator.");
-            sb.AppendLine("      Run LecooHelper.exe as Administrator (same as LibreHardwareMonitor).");
+            sb.AppendLine($"      Run {AppBranding.ShortName}.exe as Administrator (same as LibreHardwareMonitor).");
         }
         sb.AppendLine();
 

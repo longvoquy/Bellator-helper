@@ -1,6 +1,6 @@
-using LecooHelper.App.Power;
+using BHelper.App.Power;
 
-namespace LecooHelper.App.Tray;
+namespace BHelper.App.Tray;
 
 internal static class TrayTheme
 {
@@ -26,6 +26,8 @@ internal static class TrayTheme
     public static readonly Color ModeBalancedFill = Color.FromArgb(255, 255, 255);
     public static readonly Color ModeBeastFill = Color.FromArgb(195, 142, 50);
     public static readonly Color ModeBattleFill = Color.FromArgb(225, 37, 27);
+    public static readonly Color ModeButtonBorder = Color.FromArgb(45, 55, 75);
+    public static readonly Color ModeButtonSelectedBorder = ModeBattleFill;
 
     public static Color ModeFill(PowerModeKind kind) => kind switch
     {
@@ -36,8 +38,7 @@ internal static class TrayTheme
         _ => Surface
     };
 
-    public static Color ModeForeColor(PowerModeKind kind) =>
-        kind == PowerModeKind.Balanced ? Color.FromArgb(28, 30, 38) : Color.White;
+    public static Color ModeForeColor(PowerModeKind kind) => Text;
 
     public static Color TempAccent(float celsius)
     {

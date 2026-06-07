@@ -1,4 +1,4 @@
-namespace LecooHelper.App.Power;
+namespace BHelper.App.Power;
 
 public sealed class PerformanceProfile
 {

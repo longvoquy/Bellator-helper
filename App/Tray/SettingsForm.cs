@@ -1,21 +1,33 @@
-using LecooHelper.App.Power;
-using LecooHelper.App.Utils;
+using System.Drawing.Drawing2D;
+using BHelper.App.Power;
+using BHelper.App.Utils;
 
-namespace LecooHelper.App.Tray;
+namespace BHelper.App.Tray;
 
 public sealed class SettingsForm : Form
 {
-    private const int FormW = 420;
-    private const int FormH = 300;
+    private const int FormW = 324;
+    private const int FormH = 344;
     private const int FormPad = 12;
     private const int CornerRadius = 10;
     private const int InnerW = FormW - FormPad * 2;
-    private const int HeaderHeight = 44;
-    private const int StatRowHeight = 36;
+    private const int HeaderHeight = 36;
+    private const int StatRowHeight = 32;
+    private const int SectionGap = 6;
+
+    // G-Helper tablePerf: 4 equal columns, single row, Margin(4) per button.
+    private const int ModeIconDisplaySize = 28;
+    private const int ModeTableRowHeight = 72;
+    private const int ModeButtonMargin = 4;
+    private const int ModeButtonBorderRadius = 5;
+    private const int ModeLabelY = 2;
+    private const int ModeLabelRowH = 18;
+    private const int ModeLabelButtonGap = 6;
+    private const int ModePanelBottomPad = 6;
 
     private readonly Label _cpuTempLabel;
     private readonly Label _gpuTempLabel;
-    private readonly List<Button> _modeButtons = [];
+    private readonly List<ModeButton> _modeButtons = [];
 
     private bool _dragging;
     private Point _dragStart;
@@ -25,6 +37,7 @@ public sealed class SettingsForm : Form
     public SettingsForm()
     {
         ClientSize = new Size(FormW, FormH);
+        Icon = AppIconHelper.CreateTrayIcon();
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         StartPosition = FormStartPosition.Manual;
@@ -51,9 +64,42 @@ public sealed class SettingsForm : Form
             BackColor = TrayTheme.Background,
             Padding = new Padding(FormPad, 6, FormPad, FormPad)
         };
+
+        var startupCheckUpdating = false;
+        var startupCheck = new CheckBox
+        {
+            Text = "Run at startup",
+            Checked = StartupHelper.IsEnabled(),
+            Font = TrayTheme.Body,
+            ForeColor = TrayTheme.Text,
+            BackColor = TrayTheme.Background,
+            Padding = new Padding(10, 0, 0, 0),
+            AutoSize = true
+        };
+        startupCheck.CheckedChanged += (_, _) =>
+        {
+            if (startupCheckUpdating)
+                return;
+
+            var ok = startupCheck.Checked ? StartupHelper.Enable() : StartupHelper.Disable();
+            if (ok)
+                return;
+
+            startupCheckUpdating = true;
+            startupCheck.Checked = !startupCheck.Checked;
+            startupCheckUpdating = false;
+
+            MessageBox.Show(
+                "Could not update startup settings.",
+                AppBranding.FullName,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+        };
+
         mainPanel.Controls.Add(modeRow);
         mainPanel.Controls.Add(cpuRow);
         mainPanel.Controls.Add(gpuRow);
+        mainPanel.Controls.Add(startupCheck);
 
         Controls.Add(mainPanel);
         Controls.Add(header);
@@ -66,6 +112,8 @@ public sealed class SettingsForm : Form
         MouseUp += OnDragEnd;
 
         FormClosing += OnFormClosing;
+
+        HighlightModeButton(PowerMode.Current);
     }
 
     public void PositionBottomRight()
@@ -115,7 +163,7 @@ public sealed class SettingsForm : Form
 
         var title = new Label
         {
-            Text = "Lecoo Helper",
+            Text = AppBranding.ShortName,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
             Font = TrayTheme.Title,
@@ -125,7 +173,7 @@ public sealed class SettingsForm : Form
 
         var closeBtn = new Button
         {
-            Text = "X",
+            Image = ResourceImageHelper.Load("close_23.png"),
             Dock = DockStyle.Right,
             Width = 36,
             FlatStyle = FlatStyle.Flat,
@@ -133,8 +181,9 @@ public sealed class SettingsForm : Form
             BackColor = TrayTheme.Background,
             TabStop = false,
             Cursor = Cursors.Hand,
-            Font = TrayTheme.CloseButton
+            ImageAlign = ContentAlignment.MiddleCenter,
         };
+
         closeBtn.FlatAppearance.BorderSize = 0;
         closeBtn.FlatAppearance.MouseOverBackColor = TrayTheme.Background;
         closeBtn.FlatAppearance.MouseDownBackColor = TrayTheme.Background;
@@ -157,6 +206,7 @@ public sealed class SettingsForm : Form
         {
             Width = InnerW,
             Height = StatRowHeight,
+            Margin = new Padding(0, 0, 0, SectionGap),
             BackColor = TrayTheme.Background
         };
 
@@ -166,7 +216,6 @@ public sealed class SettingsForm : Form
             e.Graphics.DrawRectangle(pen, 0, 0, panel.Width - 1, panel.Height - 1);
         };
 
-        // TableLayoutPanel chia 2 cột: trái AutoSize, phải Fill
         var table = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -175,8 +224,8 @@ public sealed class SettingsForm : Form
             BackColor = TrayTheme.Background,
             Padding = new Padding(0)
         };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));  // cột trái: vừa đủ chứa "CPU"/"GPU"
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100)); // cột phải: lấy hết phần còn lại
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
         var titleLabel = new Label
         {
@@ -203,28 +252,21 @@ public sealed class SettingsForm : Form
     private Panel BuildModeRow()
     {
         var profiles = PerformanceProfile.All;
-
-        const int gap = 6;
-        const int btnH = 32;
-        const int modeLabelY = 2;
-        const int modeLabelRowH = 18;
-        const int modeLabelButtonGap = 10;
-        const int modeButtonY = modeLabelY + modeLabelRowH + modeLabelButtonGap;
-        const int panelBottomPad = 8;
-        var btnW = (InnerW - gap * (profiles.Count - 1)) / profiles.Count;
+        var titleHeight = ModeLabelY + ModeLabelRowH;
+        var panelHeight = titleHeight + ModeLabelButtonGap + ModeTableRowHeight + ModePanelBottomPad;
 
         var panel = new Panel
         {
             Width = InnerW,
-            Height = modeButtonY + btnH + panelBottomPad,
-            BackColor = TrayTheme.Background,
-            Padding = new Padding(0)
+            Height = panelHeight,
+            Margin = new Padding(0, 0, 0, SectionGap),
+            BackColor = TrayTheme.Background
         };
 
         var titleLabel = new Label
         {
             Text = "Mode",
-            Location = new Point(0, modeLabelY),
+            Location = new Point(0, ModeLabelY),
             AutoSize = true,
             Font = TrayTheme.SectionLabel,
             ForeColor = TrayTheme.Text,
@@ -232,34 +274,63 @@ public sealed class SettingsForm : Form
         };
         panel.Controls.Add(titleLabel);
 
+        var table = new TableLayoutPanel
+        {
+            ColumnCount = profiles.Count,
+            RowCount = 1,
+            Location = new Point(0, titleHeight + ModeLabelButtonGap),
+            Size = new Size(InnerW, ModeTableRowHeight),
+            BackColor = TrayTheme.Background,
+            Margin = new Padding(0),
+            Padding = new Padding(0)
+        };
+        for (var i = 0; i < profiles.Count; i++)
+            table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100f / profiles.Count));
+        table.RowStyles.Add(new RowStyle(SizeType.Absolute, ModeTableRowHeight));
+
         for (var i = 0; i < profiles.Count; i++)
         {
             var profile = profiles[i];
-            var btn = new Button
+            var btn = new ModeButton(profile.Kind, profile.Name, LoadModeIcon(profile.Kind));
+            btn.Click += (_, _) =>
             {
-                Text = profile.Name,
-                Location = new Point(i * (btnW + gap), modeButtonY),
-                Size = new Size(btnW, btnH),
-                FlatStyle = FlatStyle.Flat,
-                ForeColor = TrayTheme.Text,
-                BackColor = TrayTheme.Surface,
-                Font = TrayTheme.Body,
-                Cursor = Cursors.Hand,
-                TabStop = false,
-                Tag = profile.Kind
+                HighlightModeButton(profile.Kind);
+                ModeChangeRequested?.Invoke(this, profile.Kind);
             };
-            btn.FlatAppearance.BorderSize = 1;
-            btn.FlatAppearance.BorderColor = TrayTheme.Border;
-            btn.FlatAppearance.MouseOverBackColor = TrayTheme.Surface;
-            btn.FlatAppearance.MouseDownBackColor = TrayTheme.Surface;
-
-            btn.Click += (_, _) => ModeChangeRequested?.Invoke(this, profile.Kind);
 
             _modeButtons.Add(btn);
-            panel.Controls.Add(btn);
+            table.Controls.Add(btn, i, 0);
         }
 
+        panel.Controls.Add(table);
         return panel;
+    }
+
+    private static Image? LoadModeIcon(PowerModeKind kind)
+    {
+        var file = kind switch
+        {
+            PowerModeKind.Silent => "energy_savings_48.png",
+            PowerModeKind.Balanced => "infinite_48.png",
+            PowerModeKind.Beast => "rocket_launch_48.png",
+            PowerModeKind.Battle => "stadia_controller_48.png",
+            _ => null
+        };
+        if (file is null)
+            return null;
+
+        using var original = ResourceImageHelper.Load(file);
+        return original is null ? null : ScaleModeIcon(original, ModeIconDisplaySize);
+    }
+
+    private static Image ScaleModeIcon(Image source, int size)
+    {
+        var scaled = new Bitmap(size, size);
+        using var g = Graphics.FromImage(scaled);
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.DrawImage(source, 0, 0, size, size);
+        return scaled;
     }
 
     private static Label MakeStatValueLabel(string text) =>
@@ -298,26 +369,7 @@ public sealed class SettingsForm : Form
     private void HighlightModeButton(PowerModeKind mode)
     {
         foreach (var btn in _modeButtons)
-        {
-            var active = btn.Tag is PowerModeKind kind && kind == mode;
-            if (active)
-            {
-                var fill = TrayTheme.ModeFill(mode);
-                btn.ForeColor = TrayTheme.ModeForeColor(mode);
-                btn.BackColor = fill;
-                btn.FlatAppearance.BorderColor = TrayTheme.Border;
-                btn.FlatAppearance.MouseOverBackColor = fill;
-                btn.FlatAppearance.MouseDownBackColor = fill;
-            }
-            else
-            {
-                btn.ForeColor = TrayTheme.Text;
-                btn.BackColor = TrayTheme.Surface;
-                btn.FlatAppearance.BorderColor = TrayTheme.Border;
-                btn.FlatAppearance.MouseOverBackColor = TrayTheme.Surface;
-                btn.FlatAppearance.MouseDownBackColor = TrayTheme.Surface;
-            }
-        }
+            btn.Selected = btn.Kind == mode;
     }
 
     private static string FormatTemp(float celsius) =>
@@ -327,6 +379,93 @@ public sealed class SettingsForm : Form
     {
         if (celsius > 0f) return $"{celsius:0}°C";
         return AdminHelper.IsRunningAsAdministrator() ? "--" : "N/A (run as admin)";
+    }
+
+    private sealed class ModeButton : Button
+    {
+        private const int SelectedBorderWidth = 2;
+
+        private bool _selected;
+        private readonly Color _borderColor;
+
+        public PowerModeKind Kind { get; }
+
+        public bool Selected
+        {
+            get => _selected;
+            set
+            {
+                if (_selected == value)
+                    return;
+                _selected = value;
+                Invalidate();
+            }
+        }
+
+        public ModeButton(PowerModeKind kind, string label, Image? icon)
+        {
+            Kind = kind;
+            _borderColor = TrayTheme.ModeFill(kind);
+
+            Text = label;
+            Image = icon;
+            TextImageRelation = TextImageRelation.ImageAboveText;
+            ImageAlign = ContentAlignment.BottomCenter;
+
+            DoubleBuffered = true;
+            FlatStyle = FlatStyle.Flat;
+            FlatAppearance.BorderSize = 0;
+            BackColor = TrayTheme.Surface;
+            ForeColor = TrayTheme.ModeForeColor(kind);
+            Font = TrayTheme.Body;
+            Cursor = Cursors.Hand;
+            TabStop = false;
+            Margin = new Padding(ModeButtonMargin);
+            Dock = DockStyle.Fill;
+        }
+
+        protected override void OnPaint(PaintEventArgs pevent)
+        {
+            base.OnPaint(pevent);
+
+            var rect = ClientRectangle;
+            var border = SelectedBorderWidth;
+            var radius = ModeButtonBorderRadius;
+            var borderDrawColor = _selected ? _borderColor : Color.Transparent;
+            var surfaceColor = Parent?.BackColor ?? TrayTheme.Background;
+
+            using var pathSurface = GetRoundedPath(rect, radius + border);
+            using var pathBorder = GetRoundedPath(Rectangle.Inflate(rect, -border, -border), radius);
+            using var penSurface = new Pen(surfaceColor, border);
+            using var penBorder = new Pen(borderDrawColor, border) { Alignment = PenAlignment.Outset };
+
+            pevent.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            Region = new Region(pathSurface);
+            pevent.Graphics.DrawPath(penSurface, pathSurface);
+            pevent.Graphics.DrawPath(penBorder, pathBorder);
+        }
+
+        private static GraphicsPath GetRoundedPath(Rectangle rect, int radius)
+        {
+            var path = new GraphicsPath();
+            if (radius <= 0)
+            {
+                path.AddRectangle(rect);
+                return path;
+            }
+
+            var curve = radius * 2f;
+            var arc = new RectangleF(rect.X, rect.Y, curve, curve);
+            path.AddArc(arc, 180, 90);
+            arc.X = rect.Right - curve;
+            path.AddArc(arc, 270, 90);
+            arc.Y = rect.Bottom - curve;
+            path.AddArc(arc, 0, 90);
+            arc.X = rect.X;
+            path.AddArc(arc, 90, 90);
+            path.CloseFigure();
+            return path;
+        }
     }
 
     private static Region RoundedRegion(int w, int h, int radius)

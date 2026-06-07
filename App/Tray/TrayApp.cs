@@ -1,8 +1,8 @@
-using LecooHelper.App.Hardware;
-using LecooHelper.App.Power;
-using LecooHelper.App.Utils;
+using BHelper.App.Hardware;
+using BHelper.App.Power;
+using BHelper.App.Utils;
 
-namespace LecooHelper.App.Tray;
+namespace BHelper.App.Tray;
 
 public sealed class TrayApp : ApplicationContext
 {
@@ -35,11 +35,11 @@ public sealed class TrayApp : ApplicationContext
         _settingsForm = new SettingsForm();
         _settingsForm.ModeChangeRequested += OnSettingsFormModeChangeRequested;
 
-        _currentTrayIcon = TrayIconHelper.CreateTemperatureIcon(0);
+        _currentTrayIcon = AppIconHelper.CreateTrayIcon();
         _notifyIcon = new NotifyIcon
         {
             Icon = _currentTrayIcon,
-            Text = "Lecoo Helper",
+            Text = AppBranding.ShortName,
             Visible = true
         };
 
@@ -89,13 +89,13 @@ public sealed class TrayApp : ApplicationContext
 
         menu.Items.Add(new ToolStripSeparator());
 
-        var openItem = new ToolStripMenuItem("Mở Dashboard");
+        var openItem = new ToolStripMenuItem("Open Dashboard");
         openItem.Click += (_, _) => ShowSettings();
         menu.Items.Add(openItem);
 
         menu.Items.Add(new ToolStripSeparator());
 
-        var quitItem = new ToolStripMenuItem("Thoát");
+        var quitItem = new ToolStripMenuItem("Exit");
         quitItem.Click += (_, _) => ExitThread();
         menu.Items.Add(quitItem);
 
@@ -155,7 +155,6 @@ public sealed class TrayApp : ApplicationContext
         _notifyIcon.Text = TruncateTooltip(
             $"CPU {FormatCpuTemp(snapshot.CpuTemp)} | GPU {FormatTemp(snapshot.GpuTemp)}");
 
-        UpdateTrayIcon(snapshot.MaxTemp);
         UpdatePowerModeChecks();
 
         if (_settingsForm.Visible)
@@ -195,15 +194,6 @@ public sealed class TrayApp : ApplicationContext
                 _settingsForm.ShowAll();
             }
         }, null);
-    }
-
-    private void UpdateTrayIcon(float maxTemp)
-    {
-        var newIcon = TrayIconHelper.CreateTemperatureIcon(maxTemp);
-        var oldIcon = _currentTrayIcon;
-        _notifyIcon.Icon = newIcon;
-        _currentTrayIcon = newIcon;
-        TrayIconHelper.DisposeIcon(oldIcon);
     }
 
     private void OnTrayIconMouseUp(object? sender, MouseEventArgs e)
@@ -256,7 +246,7 @@ public sealed class TrayApp : ApplicationContext
         _notifyIcon.Dispose();
         _contextMenu.Dispose();
         _settingsForm.Dispose();
-        TrayIconHelper.DisposeIcon(_currentTrayIcon);
+        AppIconHelper.DisposeIcon(_currentTrayIcon);
         _currentTrayIcon = null;
     }
 

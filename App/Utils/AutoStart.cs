@@ -1,11 +1,11 @@
 using Microsoft.Win32;
 
-namespace LecooHelper.App.Utils;
+namespace BHelper.App.Utils;
 
 public static class AutoStart
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "LecooHelper";
+    private const string ValueName = AppBranding.AppId;
 
     public static bool IsEnabled()
     {

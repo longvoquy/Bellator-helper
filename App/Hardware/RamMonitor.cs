@@ -1,6 +1,6 @@
 using System.Management;
 
-namespace LecooHelper.App.Hardware;
+namespace BHelper.App.Hardware;
 
 public sealed class RamMonitor : PollingMonitorBase
 {

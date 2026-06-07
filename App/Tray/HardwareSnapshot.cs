@@ -1,4 +1,4 @@
-namespace LecooHelper.App.Tray;
+namespace BHelper.App.Tray;
 
 internal readonly record struct HardwareSnapshot(float CpuTemp, float GpuTemp)
 {

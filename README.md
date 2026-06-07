@@ -1,6 +1,6 @@
-# Lecoo Helper
+# B-helper (Bellator Helper)
 
-Lightweight system tray app for **Lecoo Fighter N176B** (and similar models), replacing the Bellator control center.
+Lightweight system tray app for **Bellator / Lecoo Fighter N176B** (and similar models), replacing the Bellator control center.
 
 ## Target hardware
 
@@ -30,17 +30,24 @@ Output: `bin\Debug\net8.0-windows\logs\hardware_dump.txt`
 ## Build
 
 ```powershell
-cd LecooHelper
-dotnet build
+dotnet build BHelper.sln
 ```
+
+Output exe: `BHelper.exe`
 
 ## Publish (single-folder exe)
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained false
+dotnet publish BHelper.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
 Output: `bin\Release\net8.0-windows\win-x64\publish\`
+
+## Run at startup
+
+Because the app requires Administrator (CPU temperature via MSR), auto-start uses a **Scheduled Task** with highest privileges instead of the HKCU `Run` registry key (which cannot elevate silently at logon).
+
+Enable it from the dashboard checkbox **Run at startup**. The task is named `BHelper` in Task Scheduler.
 
 ## Project layout
 
@@ -53,7 +60,7 @@ App/
   Tray/       NotifyIcon + popup dashboard
   Utils/      Settings, auto-start
 Resources/
-  tray_icon.ico
+  gcc.ico
 ```
 
 For architecture rules and where to put new code, see [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md).
@@ -63,5 +70,5 @@ For architecture rules and where to put new code, see [docs/PROJECT_SPEC.md](doc
 - Phase 1: Hardware monitoring (done)
 - Phase 2: Tray UI + settings window (G-Helper style toggle) (done)
 - Phase 3: Power modes (requires `--debug` dump on real hardware)
-- Phase 4: Auto-start and settings persistence
+- Phase 4: Auto-start (done) and settings persistence
 - Phase 5: Hardware debugger (`--debug`)

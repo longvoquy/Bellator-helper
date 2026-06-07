@@ -1,6 +1,6 @@
 using LibreHardwareMonitor.Hardware;
 
-namespace LecooHelper.App.Hardware;
+namespace BHelper.App.Hardware;
 
 internal static class HardwareMonitorHost
 {

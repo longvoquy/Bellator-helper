@@ -1,4 +1,4 @@
-# LecooHelper — Architecture Review Guide
+# BHelper — Architecture Review Guide
 
 Tài liệu này dùng để agent AI review code trong project, kiểm tra xem cấu trúc và cách viết có đúng chuẩn không.
 
@@ -68,7 +68,7 @@ public static class TrayTheme {
 ### 4. Settings (Utils) — đọc/ghi config, không có UI
 
 **Đúng:**
-- `App/Utils/Settings.cs` — JSON tại `%AppData%\LecooHelper\settings.json`
+- `App/Utils/Settings.cs` — JSON tại `%AppData%\BHelper\settings.json`
 - Trả về plain object (không phải Control hay Form)
 
 **Sai:**

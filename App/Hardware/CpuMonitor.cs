@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Management;
 using LibreHardwareMonitor.Hardware;
 
-namespace LecooHelper.App.Hardware;
+namespace BHelper.App.Hardware;
 
 public sealed class CpuMonitor : PollingMonitorBase
 {

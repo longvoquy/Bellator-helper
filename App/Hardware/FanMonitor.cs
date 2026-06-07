@@ -1,7 +1,7 @@
 using System.Management;
 using LibreHardwareMonitor.Hardware;
 
-namespace LecooHelper.App.Hardware;
+namespace BHelper.App.Hardware;
 
 public sealed class FanMonitor : PollingMonitorBase
 {
