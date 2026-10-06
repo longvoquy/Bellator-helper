@@ -19,6 +19,10 @@ internal static class TrayTheme
     public static readonly Color Border = Color.White;
     public static readonly Color Text = Color.White;
     public static readonly Color TextMuted = Color.White;
+    public static readonly Color TooltipBackground = Color.FromArgb(22, 31, 48);
+    public static readonly Color TooltipBorder = Color.FromArgb(51, 65, 85);
+    public static readonly Color TooltipText = Color.FromArgb(226, 232, 240);
+    public static readonly Color TooltipTitle = Color.FromArgb(148, 163, 184);
     public static readonly Color GaugeWarn = Color.FromArgb(255, 193, 7);
     public static readonly Color GaugeHot = Color.FromArgb(255, 82, 82);
 

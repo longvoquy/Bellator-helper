@@ -11,6 +11,7 @@ public sealed class TrayApp : ApplicationContext
     private readonly NotifyIcon _notifyIcon;
     private readonly GlobalHotkeyWindow _hotkeyWindow;
     private SettingsForm? _settingsForm;
+    private FanForm? _fanForm;
     private readonly ContextMenuStrip _contextMenu;
     private readonly Settings _settings;
     private readonly CpuMonitor _cpuMonitor;
@@ -33,6 +34,9 @@ public sealed class TrayApp : ApplicationContext
 
     private const int PowerSyncIntervalMs = 5000;
     private const int PowerDebounceMs = 3000;
+    private const int UpdateCheckDelayMs = 30000;
+    private static readonly TimeSpan UpdateCheckInterval = TimeSpan.FromDays(1);
+    private bool _updateBalloonShown;
 
     public TrayApp()
     {
@@ -52,8 +56,12 @@ public sealed class TrayApp : ApplicationContext
         // The firmware announces every mode change (Fn+F10, Control Center, our own SetMode): refresh at once.
         _hidEventListener.SystemPerModeChanged += (_, raw) =>
         {
-            if (PowerMode.TryApplyReportedMode(raw))
-                PostRefreshTray();
+            if (!PowerMode.TryApplyReportedMode(raw))
+                return;
+
+            // The fan cap is per mode: put the saved cap of the new mode back, as the vendor tool does.
+            ReapplyFanLimit(PowerMode.Current);
+            PostRefreshTray();
         };
         // Fn+F10 (Bellator key): cycle the performance mode, same as the keyboard hotkey.
         _hidEventListener.BellatorKeyPressed += (_, _) =>
@@ -70,7 +78,6 @@ public sealed class TrayApp : ApplicationContext
         _contextMenu = BuildContextMenu();
         // Do not assign ContextMenuStrip to NotifyIcon — it blocks left-click on Windows 11.
         _notifyIcon.MouseUp += OnTrayIconMouseUp;
-        _notifyIcon.DoubleClick += (_, _) => ShowSettings();
         _notifyIcon.MouseMove += OnTrayIconMouseMove;
 
         _hotkeyWindow = new GlobalHotkeyWindow();
@@ -93,6 +100,16 @@ public sealed class TrayApp : ApplicationContext
 
         Application.ApplicationExit += (_, _) => DisposeTray();
 
+        // Battery and RAM only use WMI, so start them on their own and have data as soon as possible.
+        Task.Run(() =>
+        {
+            _batteryMonitor.Start();
+            _ramMonitor.Start();
+
+            // Detects the CPU vendor over WMI once, so the fan window never does it on the UI thread.
+            _ = FanControl.GetRange(PowerModeKind.Balanced, FanKind.Sys);
+        });
+
         // LibreHardwareMonitor open + WMI calls are slow; keep them off the UI thread
         // so the tray icon appears and responds immediately.
         Task.Run(() =>
@@ -108,13 +125,17 @@ public sealed class TrayApp : ApplicationContext
             _lastPowerSyncMs = Environment.TickCount64;
             PostRefreshTray();
 
+            // Restore a saved fan cap right away (only when the user turned it on).
+            ReapplyFanLimit(PowerMode.Current);
+
             _cpuMonitor.Start();
             _gpuMonitor.Start();
             _fanMonitor.Start();
-            _ramMonitor.Start();
-            _batteryMonitor.Start();
             _hidEventListener.Start();
         });
+
+        _notifyIcon.BalloonTipClicked += OnBalloonTipClicked;
+        Task.Run(CheckForUpdateOnceADayAsync);
     }
 
     private SettingsForm GetSettingsForm()
@@ -124,6 +145,7 @@ public sealed class TrayApp : ApplicationContext
             _settingsForm = new SettingsForm(_settings);
             _settingsForm.ModeChangeRequested += OnSettingsFormModeChangeRequested;
             _settingsForm.HotkeyChangeRequested += OnHotkeyChangeRequested;
+            _settingsForm.FanControlRequested += (_, _) => ShowFanForm();
         }
 
         return _settingsForm;
@@ -156,9 +178,15 @@ public sealed class TrayApp : ApplicationContext
 
     private ContextMenuStrip BuildContextMenu()
     {
-        var menu = new ContextMenuStrip
+        var menu = new TrayContextMenu
         {
-            ShowCheckMargin = true
+            ShowCheckMargin = true,
+            ShowImageMargin = false,
+            Renderer = new TrayMenuRenderer(),
+            Font = TrayTheme.Body,
+            BackColor = TrayTheme.Background,
+            ForeColor = TrayTheme.Text,
+            Padding = new Padding(0, 4, 0, 4)
         };
 
         _cpuMenuItem = CreateInfoItem("CPU Temp: --");
@@ -202,6 +230,10 @@ public sealed class TrayApp : ApplicationContext
         var quitItem = new ToolStripMenuItem("Exit");
         quitItem.Click += (_, _) => ExitThread();
         menu.Items.Add(quitItem);
+
+        // A little vertical room per row so the dark menu does not feel cramped.
+        foreach (var menuItem in menu.Items.OfType<ToolStripMenuItem>())
+            menuItem.Padding = new Padding(2, 5, 2, 5);
 
         return menu;
     }
@@ -256,7 +288,52 @@ public sealed class TrayApp : ApplicationContext
 
     private void ShowNotice(string text, ToolTipIcon icon = ToolTipIcon.Info)
     {
+        _updateBalloonShown = false;
         _notifyIcon.ShowBalloonTip(2000, AppBranding.FullName, text, icon);
+    }
+
+    // Wait until startup settles, then ask GitHub at most once per day. A failed check is retried next launch.
+    private async Task CheckForUpdateOnceADayAsync()
+    {
+        await Task.Delay(UpdateCheckDelayMs);
+        if (_disposed)
+            return;
+
+        var last = _settings.LastUpdateCheckUtc;
+        if (last is not null && DateTime.UtcNow - last.Value < UpdateCheckInterval)
+            return;
+
+        var latest = await UpdateChecker.GetLatestVersionAsync();
+        if (latest is null || _disposed)
+            return;
+
+        _settings.LastUpdateCheckUtc = DateTime.UtcNow;
+        _settings.Save();
+
+        if (latest.CompareTo(UpdateChecker.CurrentVersion) <= 0)
+            return;
+
+        _syncContext.Post(_ =>
+        {
+            if (_disposed)
+                return;
+
+            _updateBalloonShown = true;
+            _notifyIcon.ShowBalloonTip(
+                8000,
+                AppBranding.FullName,
+                $"Version {latest} is available. Click to open the download page.",
+                ToolTipIcon.Info);
+        }, null);
+    }
+
+    private void OnBalloonTipClicked(object? sender, EventArgs e)
+    {
+        if (!_updateBalloonShown)
+            return;
+
+        _updateBalloonShown = false;
+        Process.Start(new ProcessStartInfo(UpdateChecker.LatestReleaseUrl) { UseShellExecute = true });
     }
 
     private void OnHotkeyChangeRequested(object? sender, SettingsForm.HotkeyRequest request)
@@ -297,6 +374,7 @@ public sealed class TrayApp : ApplicationContext
 
         UpdatePowerModeChecks();
         PostRefreshTray();
+        ReapplyFanLimit(kind);
     }
 
     private void RegisterModeHotkey()
@@ -386,7 +464,7 @@ public sealed class TrayApp : ApplicationContext
 
         _cpuMenuItem.Text = $"CPU Temp: {FormatCpuTemp(snapshot.CpuTemp)}";
         _gpuMenuItem.Text = $"GPU Temp: {FormatTemp(snapshot.GpuTemp)}";
-        _batteryMenuItem.Text = FormatBattery(_batteryMonitor);
+        _batteryMenuItem.Text = FormatBattery(snapshot);
 
         _notifyIcon.Text = TruncateTooltip(
             $"CPU {FormatCpuTemp(snapshot.CpuTemp)} | GPU {FormatTemp(snapshot.GpuTemp)}");
@@ -395,11 +473,144 @@ public sealed class TrayApp : ApplicationContext
 
         if (_settingsForm is { Visible: true })
             _settingsForm.ApplySnapshot(snapshot, PowerMode.Current);
+
+        if (_fanForm is { Visible: true })
+        {
+            // The mode can change while the window is open (Fn+F10): show that mode's range and values.
+            if (_fanForm.BoundMode != PowerMode.Current)
+                BindFanForm(_fanForm, PowerMode.Current);
+
+            _fanForm.UpdateLive(snapshot);
+        }
+    }
+
+    // Saved cap of one mode, kept inside the allowed range. Defaults are the vendor's per-mode values.
+    private (bool Enabled, int CpuGpu, int Sys) GetFanSettings(PowerModeKind mode)
+    {
+        var key = mode.ToString();
+        var cpuRange = FanControl.GetRange(mode, FanKind.CpuGpu);
+        var sysRange = FanControl.GetRange(mode, FanKind.Sys);
+
+        var cpu = _settings.FanCpuGpuLimits.TryGetValue(key, out var savedCpu) ? cpuRange.Clamp(savedCpu) : cpuRange.Default;
+        var sys = _settings.FanSysLimits.TryGetValue(key, out var savedSys) ? sysRange.Clamp(savedSys) : sysRange.Default;
+        return (_settings.FanLimitEnabled, cpu, sys);
+    }
+
+    // Does nothing unless the user turned the manual cap on, so the firmware stays in charge by default.
+    private void ReapplyFanLimit(PowerModeKind mode)
+    {
+        if (!_settings.FanLimitEnabled)
+            return;
+
+        var (enabled, cpu, sys) = GetFanSettings(mode);
+        Task.Run(() => FanControl.TryApply(mode, enabled, cpu, sys));
+    }
+
+    private void BindFanForm(FanForm form, PowerModeKind mode)
+    {
+        var (enabled, cpu, sys) = GetFanSettings(mode);
+        form.Bind(mode, enabled, cpu, sys);
+    }
+
+    private FanForm GetFanForm()
+    {
+        if (_fanForm is null)
+        {
+            _fanForm = new FanForm();
+            _fanForm.ApplyRequested += OnFanApplyRequested;
+        }
+
+        return _fanForm;
+    }
+
+    private void ShowFanForm()
+    {
+        if (_disposed)
+            return;
+
+        var form = GetFanForm();
+        if (form.IsDisposed)
+            return;
+
+        BindFanForm(form, PowerMode.Current);
+        form.UpdateLive(CreateSnapshot());
+
+        if (!form.Visible)
+            PositionFanForm(form);
+
+        form.Show();
+        form.BringToFront();
+        form.Activate();
+    }
+
+    // Prefer the left side of the dashboard, bottom aligned; fall back to its right side.
+    private void PositionFanForm(FanForm form)
+    {
+        form.PerformLayout();
+
+        var anchor = _settingsForm is { IsDisposed: false, Visible: true } ? _settingsForm : null;
+        var area = Screen.FromPoint(anchor is null ? Cursor.Position : anchor.Location).WorkingArea;
+        const int gap = 12;
+
+        int left;
+        int bottom;
+        if (anchor is null)
+        {
+            left = area.Right - form.Width - gap;
+            bottom = area.Bottom - gap;
+        }
+        else
+        {
+            left = anchor.Left - form.Width - gap;
+            if (left < area.Left)
+                left = anchor.Right + gap;
+            bottom = anchor.Bottom;
+        }
+
+        form.Left = Math.Clamp(left, area.Left, Math.Max(area.Left, area.Right - form.Width));
+        form.Top = Math.Clamp(bottom - form.Height, area.Top, Math.Max(area.Top, area.Bottom - form.Height));
+    }
+
+    private void OnFanApplyRequested(object? sender, FanForm.FanApplyRequest request)
+    {
+        var mode = PowerMode.Current;
+        var key = mode.ToString();
+        var cpu = FanControl.GetRange(mode, FanKind.CpuGpu).Clamp(request.CpuGpuValue);
+        var sys = FanControl.GetRange(mode, FanKind.Sys).Clamp(request.SysValue);
+
+        _settings.FanLimitEnabled = request.Enabled;
+        if (request.Enabled)
+        {
+            // Keep the chosen values only when the cap is on, so "Reset to auto" does not overwrite them.
+            _settings.FanCpuGpuLimits[key] = cpu;
+            _settings.FanSysLimits[key] = sys;
+        }
+
+        _settings.Save();
+
+        Task.Run(() =>
+        {
+            var ok = FanControl.TryApply(mode, request.Enabled, cpu, sys);
+            _syncContext.Post(_ =>
+            {
+                if (_disposed)
+                    return;
+
+                if (ok)
+                    ShowNotice(request.Enabled ? "Fan limit applied." : "Fans are back to auto.");
+                else
+                    ShowNotice("Could not change the fan limit.", ToolTipIcon.Warning);
+
+                PostRefreshTray();
+            }, null);
+        });
     }
 
     private HardwareSnapshot CreateSnapshot() =>
-        new(_cpuMonitor.Temp, _gpuMonitor.Temperature, _fanMonitor.CpuRpm, _fanMonitor.GpuRpm,
-            _ramMonitor.UsagePercent, _ramMonitor.UsedGb, _ramMonitor.TotalGb);
+        new(_cpuMonitor.Temp, _gpuMonitor.Temperature, _fanMonitor.CpuRpm, _fanMonitor.GpuRpm, _fanMonitor.SysRpm,
+            _ramMonitor.UsagePercent, _ramMonitor.UsedGb, _ramMonitor.TotalGb,
+            _batteryMonitor.HasBattery, _batteryMonitor.ChargePercent, _batteryMonitor.OnAcPower,
+            _batteryMonitor.IsCharging, _batteryMonitor.HealthPercent, _batteryMonitor.CycleCount);
 
     private void ShowSettings()
     {
@@ -418,8 +629,9 @@ public sealed class TrayApp : ApplicationContext
             try
             {
                 // Use cached monitor values (refreshed by timers) so the window opens instantly.
-                form.PositionBottomRight();
+                // Apply the snapshot first: the battery row shows/hides, which changes the form height.
                 form.ApplySnapshot(CreateSnapshot(), PowerMode.Current);
+                form.PositionBottomRight();
             }
             catch
             {
@@ -433,9 +645,24 @@ public sealed class TrayApp : ApplicationContext
     private void OnTrayIconMouseUp(object? sender, MouseEventArgs e)
     {
         if (e.Button == MouseButtons.Left)
-            ShowSettings();
+            ToggleSettings();
         else if (e.Button == MouseButtons.Right)
             _contextMenu.Show(Cursor.Position);
+    }
+
+    // Clicking the tray icon opens the dashboard, and clicking it again closes it.
+    private void ToggleSettings()
+    {
+        if (_disposed)
+            return;
+
+        if (_settingsForm is { IsDisposed: false, Visible: true })
+        {
+            _settingsForm.HideAll();
+            return;
+        }
+
+        ShowSettings();
     }
 
     private void OnTrayIconMouseMove(object? sender, MouseEventArgs e)
@@ -451,14 +678,13 @@ public sealed class TrayApp : ApplicationContext
     private static ToolStripMenuItem CreateInfoItem(string text) =>
         new(text) { Enabled = false };
 
-    private static string FormatBattery(BatteryMonitor battery)
+    private static string FormatBattery(HardwareSnapshot snapshot)
     {
-        if (!battery.HasBattery)
+        if (!snapshot.HasBattery)
             return "Battery: none";
 
-        var health = battery.HealthPercent > 0 ? $"{battery.HealthPercent}%" : "--";
-        var source = battery.OnAcPower ? "AC" : "battery";
-        return $"Battery: {battery.ChargePercent}% ({source}) | Health {health} | {battery.CycleCount} cycles";
+        var health = snapshot.BatteryHealthPercent > 0 ? $"{snapshot.BatteryHealthPercent}%" : "--";
+        return $"Battery: {snapshot.BatteryPercent}% ({snapshot.BatteryStateText}) | Health {health} | {snapshot.BatteryCycles} cycles";
     }
 
     private static string FormatTemp(float celsius) =>
@@ -498,6 +724,7 @@ public sealed class TrayApp : ApplicationContext
         _notifyIcon.Dispose();
         _contextMenu.Dispose();
         _settingsForm?.Dispose();
+        _fanForm?.Dispose();
         AppIconHelper.DisposeIcon(_currentTrayIcon);
         _currentTrayIcon = null;
     }

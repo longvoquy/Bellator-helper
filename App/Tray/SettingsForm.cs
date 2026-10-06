@@ -51,11 +51,20 @@ public sealed class SettingsForm : Form
     private readonly TableLayoutPanel ramTable;
     private readonly Label ramTitleLabel;
     private readonly Label ramValueLabel;
+    private readonly Panel fanPanel;
+    private readonly TableLayoutPanel fanTable;
+    private readonly Label fanTitleLabel;
+    private readonly Label fanValueLabel;
+    private readonly Panel batteryPanel;
+    private readonly TableLayoutPanel batteryTable;
+    private readonly Label batteryTitleLabel;
+    private readonly Label batteryValueLabel;
     private readonly CheckBox startupCheckBox;
     private readonly FlowLayoutPanel hotkeyPanel;
     private readonly Label hotkeyLabel;
     private readonly Button hotkeyButton;
     private readonly Settings _settings;
+    private readonly ToolTip _toolTip = new() { AutoPopDelay = 20000, InitialDelay = 300, ReshowDelay = 100 };
     private readonly List<ModeButton> _modeButtons = [];
 
     private bool _dragging;
@@ -67,6 +76,7 @@ public sealed class SettingsForm : Form
     public sealed record HotkeyRequest(int Modifiers, int Key);
 
     public event EventHandler<PowerModeKind>? ModeChangeRequested;
+    public event EventHandler? FanControlRequested;
     public event EventHandler<HotkeyRequest>? HotkeyChangeRequested;
 
     private int ScaleDpi(int value) => (int)Math.Round(value * DeviceDpi / (double)DesignDpi);
@@ -94,6 +104,14 @@ public sealed class SettingsForm : Form
         ramTable = new TableLayoutPanel();
         ramTitleLabel = new Label();
         ramValueLabel = new Label();
+        fanPanel = new Panel();
+        fanTable = new TableLayoutPanel();
+        fanTitleLabel = new Label();
+        fanValueLabel = new Label();
+        batteryPanel = new Panel();
+        batteryTable = new TableLayoutPanel();
+        batteryTitleLabel = new Label();
+        batteryValueLabel = new Label();
         startupCheckBox = new CheckBox();
         hotkeyPanel = new FlowLayoutPanel();
         hotkeyLabel = new Label();
@@ -108,7 +126,7 @@ public sealed class SettingsForm : Form
         Region = RoundedRegion(FormW, FormH, CornerRadius);
 
         titleLabel.Text = AppBranding.ShortName;
-        closeButton.Image = ResourceImageHelper.Load("cross-23.png");
+        closeButton.Image = ResourceImageHelper.LoadTinted("cross-23.png", TrayTheme.Text);
         using var modeSectionIcon = ResourceImageHelper.Load("readiness_score_32dp_fill.png");
         modeIconBox.Image = modeSectionIcon is null ? null : ScaleModeIcon(modeSectionIcon, ScaleDpi(ModeSectionIconSize));
 
@@ -156,11 +174,48 @@ public sealed class SettingsForm : Form
         ramValueLabel.Text = FormatRam(snapshot);
         ramValueLabel.ForeColor = TrayTheme.Text;
 
+        fanValueLabel.Text = _settings.FanLimitEnabled ? "Limited  >" : "Auto  >";
+        fanValueLabel.ForeColor = TrayTheme.Text;
+
+        SetBatteryRowVisible(snapshot.HasBattery);
+        batteryValueLabel.Text = FormatBattery(snapshot);
+        batteryValueLabel.ForeColor = TrayTheme.Text;
+
+        // Child controls do not inherit tooltips, so set it on every part of the row.
+        var batteryTip = snapshot.BatteryTooltip;
+        _toolTip.SetToolTip(batteryTitleLabel, batteryTip);
+        _toolTip.SetToolTip(batteryValueLabel, batteryTip);
+        _toolTip.SetToolTip(batteryTable, batteryTip);
+
         HighlightModeButton(mode);
     }
 
     private static string FormatRpm(int rpm) =>
         rpm > 0 ? $"{rpm} RPM" : "0 RPM";
+
+    // The row can appear while the dashboard is already open. Keep the bottom edge fixed so the
+    // taller form grows upward instead of sliding off the bottom of the screen.
+    private void SetBatteryRowVisible(bool visible)
+    {
+        if (batteryPanel.Visible == visible)
+            return;
+
+        var bottom = Bottom;
+        batteryPanel.Visible = visible;
+        PerformLayout();
+
+        if (Visible)
+            Top = bottom - Height;
+    }
+
+    private static string FormatBattery(HardwareSnapshot snapshot)
+    {
+        if (!snapshot.HasBattery)
+            return "--";
+
+        var health = snapshot.BatteryHealthPercent > 0 ? $"{snapshot.BatteryHealthPercent}%" : "--";
+        return $"{snapshot.BatteryPercent}%  {snapshot.BatteryStateText}  Health {health}  {snapshot.BatteryCycles} cycles";
+    }
 
     private static string FormatRam(HardwareSnapshot snapshot) =>
         snapshot.RamTotalGb > 0f
@@ -254,7 +309,9 @@ public sealed class SettingsForm : Form
         contentLayout.Location = new Point(0, 0);
         contentLayout.Margin = Padding.Empty;
         contentLayout.Name = "contentLayout";
-        contentLayout.RowCount = 5;
+        contentLayout.RowCount = 7;
+        contentLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+        contentLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         contentLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         contentLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         contentLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -405,6 +462,59 @@ public sealed class SettingsForm : Form
         gpuPanel.Controls.Add(gpuTable);
         gpuPanel.ResumeLayout(false);
 
+        // fanPanel: click to open the fan window
+        fanPanel.SuspendLayout();
+        fanPanel.Dock = DockStyle.Top;
+        fanPanel.Location = new Point(0, 0);
+        fanPanel.Margin = new Padding(0, 16, 0, 0);
+        fanPanel.Padding = new Padding(20, 0, 20, 0);
+        fanPanel.Name = "fanPanel";
+        fanPanel.Size = new Size(FormW, StatRowHeight);
+        fanPanel.Cursor = Cursors.Hand;
+
+        // fanTable
+        fanTable.SuspendLayout();
+        fanTable.ColumnCount = 2;
+        fanTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, StatLabelWidth));
+        fanTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        fanTable.Dock = DockStyle.Fill;
+        fanTable.Location = new Point(20, 0);
+        fanTable.Margin = new Padding(0);
+        fanTable.Name = "fanTable";
+        fanTable.RowCount = 1;
+        fanTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        fanTable.Size = new Size(InnerW, StatRowHeight);
+        fanTable.Cursor = Cursors.Hand;
+
+        // fanTitleLabel
+        fanTitleLabel.Dock = DockStyle.Fill;
+        fanTitleLabel.Location = new Point(0, 0);
+        fanTitleLabel.Margin = new Padding(0);
+        fanTitleLabel.Name = "fanTitleLabel";
+        fanTitleLabel.Padding = new Padding(StatLabelPadLeft, 0, 0, 0);
+        fanTitleLabel.Size = new Size(StatLabelWidth, StatRowHeight);
+        fanTitleLabel.Text = "Fan";
+        fanTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
+        fanTitleLabel.Cursor = Cursors.Hand;
+
+        // fanValueLabel
+        fanValueLabel.Dock = DockStyle.Fill;
+        fanValueLabel.Location = new Point(StatLabelWidth, 0);
+        fanValueLabel.Margin = new Padding(0);
+        fanValueLabel.Name = "fanValueLabel";
+        fanValueLabel.Padding = new Padding(0, 0, StatValuePadRight, 0);
+        fanValueLabel.Size = new Size(InnerW - StatLabelWidth, StatRowHeight);
+        fanValueLabel.Text = "Auto  >";
+        fanValueLabel.TextAlign = ContentAlignment.MiddleRight;
+        fanValueLabel.Cursor = Cursors.Hand;
+
+        fanTable.Controls.Add(fanTitleLabel, 0, 0);
+        fanTable.Controls.Add(fanValueLabel, 1, 0);
+        fanTable.ResumeLayout(false);
+
+        fanPanel.Controls.Add(fanTable);
+        fanPanel.ResumeLayout(false);
+
         // ramPanel
         ramPanel.SuspendLayout();
         ramPanel.Dock = DockStyle.Top;
@@ -454,6 +564,56 @@ public sealed class SettingsForm : Form
         ramPanel.Controls.Add(ramTable);
         ramPanel.ResumeLayout(false);
 
+        // batteryPanel (hidden until a battery is reported)
+        batteryPanel.SuspendLayout();
+        batteryPanel.Dock = DockStyle.Top;
+        batteryPanel.Visible = false;
+        batteryPanel.Location = new Point(0, 0);
+        batteryPanel.Margin = new Padding(0, 16, 0, 0);
+        batteryPanel.Padding = new Padding(20, 0, 20, 0);
+        batteryPanel.Name = "batteryPanel";
+        batteryPanel.Size = new Size(FormW, StatRowHeight);
+
+        // batteryTable
+        batteryTable.SuspendLayout();
+        batteryTable.ColumnCount = 2;
+        batteryTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, StatLabelWidth));
+        batteryTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        batteryTable.Dock = DockStyle.Fill;
+        batteryTable.Location = new Point(20, 0);
+        batteryTable.Margin = new Padding(0);
+        batteryTable.Name = "batteryTable";
+        batteryTable.RowCount = 1;
+        batteryTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+        batteryTable.Size = new Size(InnerW, StatRowHeight);
+
+        // batteryTitleLabel
+        batteryTitleLabel.Dock = DockStyle.Fill;
+        batteryTitleLabel.Location = new Point(0, 0);
+        batteryTitleLabel.Margin = new Padding(0);
+        batteryTitleLabel.Name = "batteryTitleLabel";
+        batteryTitleLabel.Padding = new Padding(StatLabelPadLeft, 0, 0, 0);
+        batteryTitleLabel.Size = new Size(StatLabelWidth, StatRowHeight);
+        batteryTitleLabel.Text = "Battery";
+        batteryTitleLabel.TextAlign = ContentAlignment.MiddleLeft;
+
+        // batteryValueLabel
+        batteryValueLabel.Dock = DockStyle.Fill;
+        batteryValueLabel.Location = new Point(StatLabelWidth, 0);
+        batteryValueLabel.Margin = new Padding(0);
+        batteryValueLabel.Name = "batteryValueLabel";
+        batteryValueLabel.Padding = new Padding(0, 0, StatValuePadRight, 0);
+        batteryValueLabel.Size = new Size(InnerW - StatLabelWidth, StatRowHeight);
+        batteryValueLabel.Text = "--";
+        batteryValueLabel.TextAlign = ContentAlignment.MiddleRight;
+
+        batteryTable.Controls.Add(batteryTitleLabel, 0, 0);
+        batteryTable.Controls.Add(batteryValueLabel, 1, 0);
+        batteryTable.ResumeLayout(false);
+
+        batteryPanel.Controls.Add(batteryTable);
+        batteryPanel.ResumeLayout(false);
+
         // startupCheckBox
         startupCheckBox.Dock = DockStyle.Top;
         startupCheckBox.Location = new Point(20, 0);
@@ -466,9 +626,11 @@ public sealed class SettingsForm : Form
         // Add to contentLayout
         contentLayout.Controls.Add(modePanel, 0, 0);
         contentLayout.Controls.Add(gpuPanel, 0, 1);
-        contentLayout.Controls.Add(ramPanel, 0, 2);
-        contentLayout.Controls.Add(hotkeyPanel, 0, 3);
-        contentLayout.Controls.Add(startupCheckBox, 0, 4);
+        contentLayout.Controls.Add(fanPanel, 0, 2);
+        contentLayout.Controls.Add(ramPanel, 0, 3);
+        contentLayout.Controls.Add(batteryPanel, 0, 4);
+        contentLayout.Controls.Add(hotkeyPanel, 0, 5);
+        contentLayout.Controls.Add(startupCheckBox, 0, 6);
 
         contentLayout.ResumeLayout(false);
         contentLayout.PerformLayout();
@@ -513,7 +675,9 @@ public sealed class SettingsForm : Form
         cpuTempLabel.Margin = new Padding(ScaleDpi(8), 0, 0, 0);
 
         ConfigureStatRow(gpuPanel, gpuTable, gpuTitleLabel, gpuTempLabel);
+        ConfigureStatRow(fanPanel, fanTable, fanTitleLabel, fanValueLabel);
         ConfigureStatRow(ramPanel, ramTable, ramTitleLabel, ramValueLabel);
+        ConfigureStatRow(batteryPanel, batteryTable, batteryTitleLabel, batteryValueLabel);
 
         startupCheckBox.Height = ScaleDpi(StartupRowHeight);
         startupCheckBox.Margin = new Padding(ScaleDpi(20), ScaleDpi(16), ScaleDpi(20), 0);
@@ -568,7 +732,9 @@ public sealed class SettingsForm : Form
         cpuTempLabel.Font = TrayTheme.Body; // Match buttons font
 
         ApplyStatTheme(gpuPanel, gpuTable, gpuTitleLabel, gpuTempLabel);
+        ApplyStatTheme(fanPanel, fanTable, fanTitleLabel, fanValueLabel);
         ApplyStatTheme(ramPanel, ramTable, ramTitleLabel, ramValueLabel);
+        ApplyStatTheme(batteryPanel, batteryTable, batteryTitleLabel, batteryValueLabel);
 
         startupCheckBox.BackColor = TrayTheme.Background;
         startupCheckBox.ForeColor = TrayTheme.Text;
@@ -661,7 +827,13 @@ public sealed class SettingsForm : Form
 
         headerPanel.Paint += OnHeaderPaint;
         gpuPanel.Paint += OnBorderPanelPaint;
+        fanPanel.Paint += OnBorderPanelPaint;
         ramPanel.Paint += OnBorderPanelPaint;
+
+        // The whole row is one big click target, including the labels drawn on top of the panel.
+        foreach (var clickable in new Control[] { fanPanel, fanTable, fanTitleLabel, fanValueLabel })
+            clickable.Click += (_, _) => FanControlRequested?.Invoke(this, EventArgs.Empty);
+        batteryPanel.Paint += OnBorderPanelPaint;
 
         headerPanel.MouseDown += OnDragStart;
         headerPanel.MouseMove += OnDragMove;
@@ -674,6 +846,10 @@ public sealed class SettingsForm : Form
         MouseUp += OnDragEnd;
 
         hotkeyButton.Click += (_, _) => BeginHotkeyCapture();
+
+        _toolTip.OwnerDraw = true;
+        _toolTip.Popup += OnToolTipPopup;
+        _toolTip.Draw += OnToolTipDraw;
 
         KeyPreview = true;
         KeyDown += OnFormKeyDown;
@@ -851,6 +1027,81 @@ public sealed class SettingsForm : Form
     }
 
     private void OnDragEnd(object? sender, MouseEventArgs e) => _dragging = false;
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+            _toolTip.Dispose();
+
+        base.Dispose(disposing);
+    }
+
+    // Dark tooltip drawn by hand so it matches the dashboard. Width is capped so long text wraps.
+    private const int ToolTipMaxWidth = 480;
+    private const int ToolTipPadX = 20;
+    private const int ToolTipPadY = 16;
+    private const int ToolTipLineGap = 8;
+    private const TextFormatFlags ToolTipTextFlags = TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.NoPrefix;
+
+    private static void SplitToolTip(string? text, out string title, out string body)
+    {
+        var parts = (text ?? string.Empty).Split('\n', 2);
+        title = parts[0];
+        body = parts.Length > 1 ? parts[1] : string.Empty;
+    }
+
+    private void OnToolTipPopup(object? sender, PopupEventArgs e)
+    {
+        if (sender is not ToolTip tip || e.AssociatedControl is null)
+            return;
+
+        SplitToolTip(tip.GetToolTip(e.AssociatedControl), out var title, out var body);
+
+        var padX = ScaleDpi(ToolTipPadX);
+        var padY = ScaleDpi(ToolTipPadY);
+        var textLimit = new Size(ScaleDpi(ToolTipMaxWidth) - padX * 2, int.MaxValue);
+
+        var titleSize = TextRenderer.MeasureText(title, TrayTheme.SectionLabel, textLimit, ToolTipTextFlags);
+        var bodySize = body.Length == 0
+            ? Size.Empty
+            : TextRenderer.MeasureText(body, TrayTheme.Body, textLimit, ToolTipTextFlags);
+        var gap = body.Length == 0 ? 0 : ScaleDpi(ToolTipLineGap);
+
+        e.ToolTipSize = new Size(
+            Math.Max(titleSize.Width, bodySize.Width) + padX * 2,
+            titleSize.Height + gap + bodySize.Height + padY * 2);
+    }
+
+    private void OnToolTipDraw(object? sender, DrawToolTipEventArgs e)
+    {
+        SplitToolTip(e.ToolTipText, out var title, out var body);
+
+        using (var background = new SolidBrush(TrayTheme.TooltipBackground))
+            e.Graphics.FillRectangle(background, e.Bounds);
+
+        using (var border = new Pen(TrayTheme.TooltipBorder))
+            e.Graphics.DrawRectangle(border, e.Bounds.X, e.Bounds.Y, e.Bounds.Width - 1, e.Bounds.Height - 1);
+
+        var padX = ScaleDpi(ToolTipPadX);
+        var padY = ScaleDpi(ToolTipPadY);
+        var contentWidth = e.Bounds.Width - padX * 2;
+        var textLimit = new Size(contentWidth, int.MaxValue);
+
+        var titleHeight = TextRenderer.MeasureText(title, TrayTheme.SectionLabel, textLimit, ToolTipTextFlags).Height;
+        TextRenderer.DrawText(
+            e.Graphics, title, TrayTheme.SectionLabel,
+            new Rectangle(e.Bounds.X + padX, e.Bounds.Y + padY, contentWidth, titleHeight),
+            TrayTheme.TooltipTitle, ToolTipTextFlags);
+
+        if (body.Length == 0)
+            return;
+
+        var bodyTop = e.Bounds.Y + padY + titleHeight + ScaleDpi(ToolTipLineGap);
+        TextRenderer.DrawText(
+            e.Graphics, body, TrayTheme.Body,
+            new Rectangle(e.Bounds.X + padX, bodyTop, contentWidth, e.Bounds.Bottom - padY - bodyTop),
+            TrayTheme.TooltipText, ToolTipTextFlags);
+    }
 
     private void OnFormClosing(object? sender, FormClosingEventArgs e)
     {

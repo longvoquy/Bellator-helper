@@ -30,6 +30,15 @@ public sealed class Settings
 
     public bool EnablePowerDebugLog { get; set; }
 
+    // Manual max-RPM cap for the fans. Off by default: the firmware controls the fans.
+    // Values are hundreds of RPM (24 = 2400 RPM), stored per power mode name (Silent, Balanced, ...).
+    public bool FanLimitEnabled { get; set; }
+    public Dictionary<string, int> FanCpuGpuLimits { get; set; } = new();
+    public Dictionary<string, int> FanSysLimits { get; set; } = new();
+
+    // Last automatic update check (UTC). The app checks at most once per day.
+    public DateTime? LastUpdateCheckUtc { get; set; }
+
     // Also logs raw Bellator Fn-key WMI events to logs/hid_events.txt (diagnostic). Fn+F10 itself always works.
     public bool EnableHidEventLog { get; set; }
 

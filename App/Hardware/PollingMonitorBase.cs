@@ -12,6 +12,10 @@ public abstract class PollingMonitorBase : IDisposable
 
     public int IntervalMs { get; }
 
+    // Monitors that read only WMI (battery, RAM) return false so they never wait for
+    // LibreHardwareMonitor to open, which takes seconds at startup.
+    protected virtual bool UsesHardwareHost => true;
+
     public event EventHandler? Updated;
 
     public void Start()
@@ -20,7 +24,8 @@ public abstract class PollingMonitorBase : IDisposable
             return;
 
         _started = true;
-        HardwareMonitorHost.Acquire();
+        if (UsesHardwareHost)
+            HardwareMonitorHost.Acquire();
 
         _timer = new System.Timers.Timer(IntervalMs);
         _timer.Elapsed += (_, _) => OnTimerElapsed();
@@ -39,7 +44,8 @@ public abstract class PollingMonitorBase : IDisposable
         _timer?.Stop();
         _timer?.Dispose();
         _timer = null;
-        HardwareMonitorHost.Release();
+        if (UsesHardwareHost)
+            HardwareMonitorHost.Release();
     }
 
     protected abstract void Refresh();
@@ -50,7 +56,8 @@ public abstract class PollingMonitorBase : IDisposable
     {
         try
         {
-            HardwareMonitorHost.UpdateAll();
+            if (UsesHardwareHost)
+                HardwareMonitorHost.UpdateAll();
             Refresh();
         }
         catch
@@ -63,7 +70,8 @@ public abstract class PollingMonitorBase : IDisposable
     {
         try
         {
-            HardwareMonitorHost.UpdateAll();
+            if (UsesHardwareHost)
+                HardwareMonitorHost.UpdateAll();
             Refresh();
             RaiseUpdated();
         }

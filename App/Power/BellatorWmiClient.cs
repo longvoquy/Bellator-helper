@@ -16,6 +16,8 @@ internal static class BellatorWmiClient
     private const byte MethodSet = 251;
     private const byte SystemPerModeId = 8;
     private const byte CpuGpuSysFanSpeedId = 13;
+    private const byte MaxFanSpeedSwitchId = 20;
+    private const byte MaxFanSpeedId = 21;
     private const string WmiPath = @"root\WMI:MICommonInterface.InstanceName='ACPI\PNP0C14\MIFS_0'";
 
     public static bool TryGetSystemPerMode(out BellatorSystemPerMode mode)
@@ -51,6 +53,22 @@ internal static class BellatorWmiClient
         gpuFanRpm = (response[7] << 8) + response[6];
         sysFanRpm = (response[11] << 8) + response[10];
         return true;
+    }
+
+    // fanType: 0 = CPU/GPU fan, 1 = system fan. Turns the manual max-RPM cap on or off.
+    public static bool TrySetMaxFanSwitch(byte fanType, bool enabled) =>
+        TrySetWithParams(MaxFanSpeedSwitchId, fanType, enabled ? (byte)1 : (byte)0);
+
+    // The value is the RPM cap in hundreds of RPM (24 = 2400 RPM).
+    public static bool TrySetMaxFanSpeed(byte fanType, byte value) =>
+        TrySetWithParams(MaxFanSpeedId, fanType, value);
+
+    private static bool TrySetWithParams(byte methodName, byte param0, byte param1)
+    {
+        var request = BuildRequest(MethodSet, methodName);
+        request[4] = param0;
+        request[5] = param1;
+        return TryInvoke(request, out _);
     }
 
     public static PowerModeKind ToPowerModeKind(BellatorSystemPerMode mode) => mode switch

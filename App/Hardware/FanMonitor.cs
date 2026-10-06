@@ -16,15 +16,17 @@ public sealed class FanMonitor : PollingMonitorBase
 
     public int CpuRpm { get; private set; }
     public int GpuRpm { get; private set; }
+    public int SysRpm { get; private set; }
 
     protected override void Refresh()
     {
-        if (Power.BellatorWmiClient.TryGetFanSpeeds(out var cpu, out var gpu, out _))
+        if (Power.BellatorWmiClient.TryGetFanSpeeds(out var cpu, out var gpu, out var sys))
         {
             lock (_sync)
             {
                 CpuRpm = cpu;
                 GpuRpm = gpu;
+                SysRpm = sys;
                 RpmValues = [cpu, gpu];
             }
             return;

@@ -21,7 +21,8 @@
   - [x] Đổi mode nền không ghi đè `DefaultPowerMode`
 - [x] **4. Phím tắt đổi mode** (đã code)
   - [x] Hotkey toàn cục qua `GlobalHotkeyWindow`, mặc định Ctrl+Alt+P, vòng qua các mode
-  - [x] Cấu hình qua `HotkeyModifiers` / `HotkeyKey` trong `settings.json` (chưa có UI chọn phím)
+  - [x] Cấu hình qua `HotkeyModifiers` / `HotkeyKey` trong `settings.json`, và nút đổi phím trong dashboard
+  - [x] Phím Bellator (Fn+F10) nghe qua WMI `HID_EVENT20`, xem `UPGRADES.md` mục C2
 - [x] **5. Hoàn tất kiểm tra cập nhật** (đã code)
   - [x] Menu tray "Check for updates" dùng `UpdateChecker`
   - [x] Có bản mới thì hỏi mở trang release, đã là bản mới nhất thì báo
@@ -30,17 +31,14 @@
 
 - [~] **6. Sparkline lịch sử nhiệt độ** (đã làm rồi gỡ bỏ)
   - [x] Đã thử: ring buffer + panel sparkline. Bỏ vì trùng thông tin với số hiện trên dashboard, hai đường gần như chồng nhau
-- [~] **7. Thông tin pin** (đã code một phần)
-  - [x] `BatteryMonitor` (WMI `Win32_Battery`, `root\WMI`): phần trăm, nguồn AC/pin, sức khỏe, số chu kỳ
-  - [x] Hiển thị trong menu tray
-  - [ ] Hiển thị trong `SettingsForm` (chưa làm, dùng menu tray trước)
-  - [ ] Chưa kiểm chứng trên máy: tên class/field WMI `root\WMI` cần xác nhận bằng `--debug` hoặc chạy thử
-- [ ] **8. Giới hạn sạc 80%** — cần kiểm tra WMI/EC của máy trước (`--debug`)
+- [x] **7. Thông tin pin** (đã code)
+  - [x] `BatteryMonitor`: phần trăm và nguồn qua `Win32_Battery`; sức khỏe và chu kỳ qua IOCTL driver pin (`BatteryInfoReader`)
+  - [x] Hiển thị trong menu tray và hàng "Battery" trong `SettingsForm`
 - [x] **9. Ghi log power ra file** (đã code)
   - [x] `PowerDebugLog` ghi `logs/power_debug.txt` trong `%APPDATA%\BHelper`
   - [x] Mặc định tắt, bật bằng `EnablePowerDebugLog` trong `settings.json`
 
-## Rủi ro cao (cần reverse engineering hoặc dump phần cứng)
+## Chưa làm (source hãng đã có method WMI, xem `UPGRADES.md` mục E)
 
-- [ ] **10. Điều khiển quạt** (curve, max fan) — phụ thuộc EC Lecoo, chưa reverse
-- [ ] **11. Chuyển GPU mode** (iGPU / dGPU / Optimus) — cần kiểm tra WMI/registry có hỗ trợ không
+- [~] **10. Điều khiển quạt** (max fan) — phần nền và UI đã code, chưa test trên máy. Xem `UPGRADES.md` mục E1
+- [ ] **11. Chuyển GPU mode** (hybrid / discrete) — method `GPUMode`

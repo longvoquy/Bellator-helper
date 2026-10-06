@@ -11,6 +11,8 @@ public sealed class RamMonitor : PollingMonitorBase
     {
     }
 
+    protected override bool UsesHardwareHost => false;
+
     public float UsagePercent { get; private set; }
     public float UsedGb { get; private set; }
     public float TotalGb { get; private set; }
