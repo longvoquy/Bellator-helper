@@ -7,10 +7,10 @@ namespace BHelper.App.Utils;
 public static class UpdateChecker
 {
     public const string LatestReleaseUrl =
-        "https://github.com/longvoquy/Lecco-helper/releases/latest";
+        "https://github.com/longvoquy/Bellator-helper/releases/latest";
 
     private const string ApiUrl =
-        "https://api.github.com/repos/longvoquy/Lecco-helper/releases/latest";
+        "https://api.github.com/repos/longvoquy/Bellator-helper/releases/latest";
 
     public static async Task<Version?> GetLatestVersionAsync()
     {

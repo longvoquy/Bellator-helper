@@ -36,7 +36,7 @@
 - [x] Hàng "Battery" trong dashboard: `99%  Plugged in  Health 98%  2 cycles`, ẩn khi máy không có pin. Ba trạng thái: Charging, Plugged in (cắm sạc, pin đầy nên không nạp), On battery. Rê chuột vào hàng này hiện tooltip giải thích
 - [x] Health và số chu kỳ đọc một lần qua IOCTL của driver pin (`BatteryInfoReader`), không dùng `root\WMI` vì `BatteryStaticData` báo "Generic failure" trên máy này. Đã kiểm tra: 57990 / 57000 mWh, 2 chu kỳ, 98%, khớp `powercfg /batteryreport`
 - [x] Kiểm tra cập nhật tự động tối đa mỗi 24 giờ, chờ 30 giây sau khi khởi động, báo bằng balloon, bấm vào balloon mở trang tải. Lần kiểm tra thất bại thì thử lại ở lần mở app sau
-- [x] URL `UpdateChecker` khớp `git remote` (`longvoquy/Lecco-helper`)
+- [x] URL `UpdateChecker` khớp `git remote` (`longvoquy/Bellator-helper`)
 
 ## D2. Chỉnh giao diện (đã code, build sạch)
 
