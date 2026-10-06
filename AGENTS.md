@@ -25,9 +25,27 @@
 5. **Settings / registry:** Chỉ `App/Utils/`.
 6. **Không** thêm package hoặc framework mới trừ khi user yêu cầu.
 7. **Không** copy logic ASUS/G-Helper — chỉ tham khảo pattern tổ chức thư mục.
-8. **Không** chạy `dotnet build` / compile — user tự build (theo rule repo).
+8. **Được phép** chạy `dotnet build` / compile để kiểm tra code (AI có thể build; user vẫn có thể build lại khi cần).
 9. **Console/log:** Không dùng emoji/icon trong `Console.WriteLine`.
 10. **Phạm vi thay đổi:** Sửa đúng layer; không refactor lan man file không liên quan task.
+11. **Build khi app đang chạy:** Trước khi `dotnet build` hoặc chạy thử, kiểm tra `BHelper.exe` có đang chạy không. Nếu có thì thử tắt (`Stop-Process -Name BHelper -Force`) rồi mới build. Bản chạy bằng Administrator thường không tắt được từ shell không elevate (báo "Access is denied"). Khi đó đừng tự nâng quyền, mà báo user đóng app thủ công rồi build lại.
+
+## Skill (`.claude/skills/`)
+
+Có sẵn bộ skill (using-superpowers, brainstorming, writing-plans, systematic-debugging, verification-before-completion, karpathy-guidelines, v.v.). Gọi skill phù hợp qua Skill tool **trước** khi làm, không chờ user nhắc tên.
+
+- Task mới lớn / nhiều bước: `brainstorming` → `writing-plans`.
+- Bug, hành vi lạ (đặc biệt lag UI, WMI, sensor): `systematic-debugging` trước khi đề xuất fix.
+- Viết / sửa code: áp dụng `karpathy-guidelines` (thay đổi tối thiểu, đúng layer, nêu giả định).
+- Trước khi báo "xong": `verification-before-completion`.
+- Task không khớp skill nào thì làm bình thường, không ép dùng.
+
+**Ưu tiên khi xung đột:** quy tắc ngắn ở trên thắng skill. Cụ thể:
+
+- Repo **không có project test**. Bước "build để verify" của `verification-before-completion` được thực hiện bằng `dotnet build BHelper.sln` (quy tắc 8). Phần test tự động vẫn không có: đọc lại diff, đối chiếu quy tắc layer, và không báo "pass" khi chưa có bằng chứng thật (build thành công chỉ chứng minh code compile, chưa chứng minh app chạy đúng).
+- Không tự thêm project test hay package (quy tắc 6) chỉ vì skill TDD khuyến nghị; hỏi user trước.
+- `using-git-worktrees` / `finishing-a-development-branch`: chỉ dùng khi user yêu cầu. Không tự commit, push hay tạo PR.
+- Lưu ý khi sửa code: UI thread không gọi WMI, `schtasks` hay `Computer.Open()` trực tiếp (xem lịch sử tối ưu tốc độ mở tray).
 
 ## Entry point
 
@@ -49,7 +67,7 @@ Resources/
 
 ## Module chưa gắn UI (đừng duplicate)
 
-- `RamMonitor`, `FanMonitor` — đã có class, **chưa** dùng trong `TrayApp`. Khi cần hiển thị RAM/fan: wire vào `TrayApp` + mở rộng `HardwareSnapshot`, không tạo monitor trùng.
+- `RamMonitor`, `FanMonitor` — đã wire vào `TrayApp` và `SettingsForm`. Khi cần thêm metric: mở rộng `HardwareSnapshot`, không tạo monitor trùng.
 
 ## Tham chiếu nhanh trạng thái
 
@@ -58,7 +76,7 @@ Resources/
 | CPU/GPU monitor + tray | Hoạt động |
 | SettingsForm (dashboard) | Hoạt động |
 | PowerMode.SetMode | WMI Bellator |
-| RamMonitor / FanMonitor | Code sẵn, chưa integrate |
+| RamMonitor / FanMonitor | Đã wire vào Tray |
 | AutoStart trong UI | Task Scheduler `BHelper` |
 
 Khi không chắc đặt file ở đâu → mở [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md) mục **Ma trận trách nhiệm** và **Checklist thêm tính năng**.

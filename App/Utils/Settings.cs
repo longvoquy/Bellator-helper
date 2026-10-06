@@ -11,6 +11,8 @@ public sealed class Settings
 
     private static readonly string SettingsFilePath = Path.Combine(SettingsDirectory, "settings.json");
 
+    public static string DataDirectory => SettingsDirectory;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
@@ -25,6 +27,24 @@ public sealed class Settings
     public PowerModeKind DefaultPowerMode { get; set; } = PowerModeKind.Balanced;
 
     public bool ShowInTray { get; set; } = true;
+
+    public bool EnablePowerDebugLog { get; set; }
+
+    // Also logs raw Bellator Fn-key WMI events to logs/hid_events.txt (diagnostic). Fn+F10 itself always works.
+    public bool EnableHidEventLog { get; set; }
+
+    // Last mode the user picked while on AC / on battery. Auto-switch restores these; no UI.
+    [JsonConverter(typeof(PowerModeKindJsonConverter))]
+    public PowerModeKind AcPowerMode { get; set; } = PowerModeKind.Balanced;
+
+    [JsonConverter(typeof(PowerModeKindJsonConverter))]
+    public PowerModeKind BatteryPowerMode { get; set; } = PowerModeKind.Silent;
+
+    // Win32 MOD_* flags: MOD_CONTROL (0x0002) | MOD_ALT (0x0001)
+    public int HotkeyModifiers { get; set; } = 0x0003;
+
+    // Virtual-key code: 'P'. Do not use 0xFF: the Fn key alone also sends 0xFF on Bellator laptops.
+    public int HotkeyKey { get; set; } = 0x50;
 
     public static Settings Load()
     {

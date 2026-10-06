@@ -14,14 +14,32 @@ public sealed class FanMonitor : PollingMonitorBase
 
     public IReadOnlyList<int> RpmValues { get; private set; } = Array.Empty<int>();
 
+    public int CpuRpm { get; private set; }
+    public int GpuRpm { get; private set; }
+
     protected override void Refresh()
     {
+        if (Power.BellatorWmiClient.TryGetFanSpeeds(out var cpu, out var gpu, out _))
+        {
+            lock (_sync)
+            {
+                CpuRpm = cpu;
+                GpuRpm = gpu;
+                RpmValues = [cpu, gpu];
+            }
+            return;
+        }
+
         var rpms = ReadFromLibreHardwareMonitor();
         if (rpms.Count == 0)
             rpms = ReadFromWmi();
 
         lock (_sync)
+        {
+            CpuRpm = rpms.Count > 0 ? rpms[0] : 0;
+            GpuRpm = rpms.Count > 1 ? rpms[1] : 0;
             RpmValues = rpms;
+        }
     }
 
     private static List<int> ReadFromLibreHardwareMonitor()

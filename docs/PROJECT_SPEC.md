@@ -126,15 +126,15 @@ File **một public type chính** (trừ nested nhỏ). Không gom nhiều monit
 | `WmiHelper.cs` | Query WMI dùng chung | Tránh duplicate WMI string |
 | `CpuMonitor.cs` | Usage %, temp, freq | PerformanceCounter + LHM |
 | `GpuMonitor.cs` | Load, temp, VRAM, clock | LHM GpuNvidia |
-| `RamMonitor.cs` | RAM used/total % | **Chưa** dùng bởi Tray |
-| `FanMonitor.cs` | Fan RPM LHM + WMI fallback | **Chưa** dùng bởi Tray |
+| `RamMonitor.cs` | RAM used/total % | Wire vào Tray (dòng RAM trong `SettingsForm`) |
+| `FanMonitor.cs` | Fan RPM LHM + WMI fallback | Wire vào Tray (fan RPM trong `SettingsForm`) |
 
 ### `App/Power/`
 
 | File | Trách nhiệm | Ghi chú |
 |------|-------------|---------|
 | `PowerModeKind.cs` | Enum trong `PowerMode.cs` | Performance, Balanced, Silent, Turbo |
-| `PowerMode.cs` | `SetMode`, `Current` | **Stub** — chưa gọi power plan/registry |
+| `PowerMode.cs` | `SetMode`, `Current`, `TrySyncFromSystem`, `Next`, `IsOnAcPower` | Gọi WMI Bellator; `Next` dùng cho hotkey; `IsOnAcPower` dùng cho đổi mode theo nguồn điện |
 | `PerformanceProfile.cs` | Metadata hiển thị menu (`All`) | UI đọc từ đây, không hardcode tên mode |
 
 ### `App/Tray/`
@@ -146,6 +146,7 @@ File **một public type chính** (trừ nested nhỏ). Không gom nhiều monit
 | `HardwareSnapshot.cs` | DTO readonly CPU/GPU temp cho UI | Mở rộng khi thêm RAM/fan |
 | `TrayIconHelper.cs` | Icon màu theo nhiệt độ | Dispose icon cũ khi đổi |
 | `TrayTheme.cs` | Màu nền/chữ UI | `#0A0E1A`, cyan text |
+| `GlobalHotkeyWindow.cs` | Hotkey toàn cục (`RegisterHotKey`) qua `NativeWindow` ẩn | Mặc định Ctrl+Alt+P, cấu hình trong `Settings` |
 
 ### `App/Utils/`
 
@@ -237,10 +238,10 @@ Toàn bộ trong `PowerMode.SetMode`; log debug `logs/power_debug.txt` nếu c�
 |-------|----------|------------|
 | 1 | Hardware monitoring CPU/GPU | ✅ |
 | 2 | Tray + SettingsForm dashboard | ✅ (SettingsForm thay PopupForm) |
-| 3 | Power modes điều khiển thật | ⏳ Stub |
+| 3 | Power modes điều khiển thật (WMI Bellator, đổi theo nguồn điện, hotkey) | ✅ |
 | 4 | Auto-start + settings persistence | ⚠️ Một phần (class có, UI tùy form) |
 | 5 | `--debug` HardwareDebugger | ✅ |
-| — | RamMonitor / FanMonitor trên UI | ❌ Chưa wire |
+| — | RamMonitor / FanMonitor trên UI | ✅ |
 
 ---
 

@@ -15,6 +15,7 @@ internal static class BellatorWmiClient
     private const byte MethodGet = 250;
     private const byte MethodSet = 251;
     private const byte SystemPerModeId = 8;
+    private const byte CpuGpuSysFanSpeedId = 13;
     private const string WmiPath = @"root\WMI:MICommonInterface.InstanceName='ACPI\PNP0C14\MIFS_0'";
 
     public static bool TryGetSystemPerMode(out BellatorSystemPerMode mode)
@@ -35,6 +36,21 @@ internal static class BellatorWmiClient
         var request = BuildRequest(MethodSet, SystemPerModeId);
         request[4] = (byte)mode;
         return TryInvoke(request, out _);
+    }
+
+    public static bool TryGetFanSpeeds(out int cpuFanRpm, out int gpuFanRpm, out int sysFanRpm)
+    {
+        cpuFanRpm = 0;
+        gpuFanRpm = 0;
+        sysFanRpm = 0;
+
+        if (!TryInvoke(BuildRequest(MethodGet, CpuGpuSysFanSpeedId), out var response) || response.Length < 12)
+            return false;
+
+        cpuFanRpm = (response[5] << 8) + response[4];
+        gpuFanRpm = (response[7] << 8) + response[6];
+        sysFanRpm = (response[11] << 8) + response[10];
+        return true;
     }
 
     public static PowerModeKind ToPowerModeKind(BellatorSystemPerMode mode) => mode switch
